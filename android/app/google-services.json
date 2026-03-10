@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "590337194193",
+    "firebase_url": "https://sau-app-7aee1-default-rtdb.firebaseio.com",
+    "project_id": "sau-app-7aee1",
+    "storage_bucket": "sau-app-7aee1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:590337194193:android:c0f0885e0aee544b752df0",
+        "android_client_info": {
+          "package_name": "com.example.rehab_assist"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJZVF6KbSkK6wexSoQPxrohEFJ1HkuuxI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
