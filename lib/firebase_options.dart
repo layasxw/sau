@@ -14,7 +14,6 @@ import 'package:flutter/foundation.dart'
 ///   options: DefaultFirebaseOptions.currentPlatform,
 /// );
 /// ```
-
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -42,53 +41,50 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBkiaKdpv_hofyvUVqmFsElu3c8O-HWOpQ',
-    appId: '1:590337194193:web:c5f1604e2b91ea29752df0',
-    messagingSenderId: '590337194193',
-    projectId: 'sau-app-7aee1',
-    authDomain: 'sau-app-7aee1.firebaseapp.com',
-    databaseURL: 'https://sau-app-7aee1-default-rtdb.firebaseio.com',
-    storageBucket: 'sau-app-7aee1.firebasestorage.app',
-    measurementId: 'G-11V95BDYYK',
+    apiKey: 'AIzaSyA143gMtcyupHHS6XGRBBUMy6nuT7-t53k',
+    appId: '1:840406998562:web:920888740df9c9b7d9b47b',
+    messagingSenderId: '840406998562',
+    projectId: 'sau-rehab-app',
+    authDomain: 'sau-rehab-app.firebaseapp.com',
+    storageBucket: 'sau-rehab-app.firebasestorage.app',
+    measurementId: 'G-SDHT6TKK9H',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAJZVF6KbSkK6wexSoQPxrohEFJ1HkuuxI',
-    appId: '1:590337194193:android:c0f0885e0aee544b752df0',
-    messagingSenderId: '590337194193',
-    projectId: 'sau-app-7aee1',
-    databaseURL: 'https://sau-app-7aee1-default-rtdb.firebaseio.com',
-    storageBucket: 'sau-app-7aee1.firebasestorage.app',
+    apiKey: 'AIzaSyAIMcLxbRP7wg0rl-P92RJgZOn-V0FKeUI',
+    appId: '1:840406998562:android:10d58ccd7bc1888ed9b47b',
+    messagingSenderId: '840406998562',
+    projectId: 'sau-rehab-app',
+    storageBucket: 'sau-rehab-app.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBC6-lp5_-Gx0akXfkCAPCN1jnf2nNj9_M',
-    appId: '1:590337194193:ios:55706006868afbef752df0',
-    messagingSenderId: '590337194193',
-    projectId: 'sau-app-7aee1',
-    databaseURL: 'https://sau-app-7aee1-default-rtdb.firebaseio.com',
-    storageBucket: 'sau-app-7aee1.firebasestorage.app',
+    apiKey: 'AIzaSyAtyR6Yy6nxKeMUu-8cAKed7eUHUmH5gVE',
+    appId: '1:840406998562:ios:ebbf6ec714bc084ed9b47b',
+    messagingSenderId: '840406998562',
+    projectId: 'sau-rehab-app',
+    storageBucket: 'sau-rehab-app.firebasestorage.app',
+    iosClientId: '840406998562-693secvbq97dgpeoprcp8mh0ntd769jl.apps.googleusercontent.com',
     iosBundleId: 'com.example.rehabAssist',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBC6-lp5_-Gx0akXfkCAPCN1jnf2nNj9_M',
-    appId: '1:590337194193:ios:55706006868afbef752df0',
-    messagingSenderId: '590337194193',
-    projectId: 'sau-app-7aee1',
-    databaseURL: 'https://sau-app-7aee1-default-rtdb.firebaseio.com',
-    storageBucket: 'sau-app-7aee1.firebasestorage.app',
+    apiKey: 'AIzaSyAtyR6Yy6nxKeMUu-8cAKed7eUHUmH5gVE',
+    appId: '1:840406998562:ios:ebbf6ec714bc084ed9b47b',
+    messagingSenderId: '840406998562',
+    projectId: 'sau-rehab-app',
+    storageBucket: 'sau-rehab-app.firebasestorage.app',
+    iosClientId: '840406998562-693secvbq97dgpeoprcp8mh0ntd769jl.apps.googleusercontent.com',
     iosBundleId: 'com.example.rehabAssist',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBkiaKdpv_hofyvUVqmFsElu3c8O-HWOpQ',
-    appId: '1:590337194193:web:7aaf0aa8bee40111752df0',
-    messagingSenderId: '590337194193',
-    projectId: 'sau-app-7aee1',
-    authDomain: 'sau-app-7aee1.firebaseapp.com',
-    databaseURL: 'https://sau-app-7aee1-default-rtdb.firebaseio.com',
-    storageBucket: 'sau-app-7aee1.firebasestorage.app',
-    measurementId: 'G-Y4Q7BKHB68',
+    apiKey: 'AIzaSyA143gMtcyupHHS6XGRBBUMy6nuT7-t53k',
+    appId: '1:840406998562:web:aabea1580e17c158d9b47b',
+    messagingSenderId: '840406998562',
+    projectId: 'sau-rehab-app',
+    authDomain: 'sau-rehab-app.firebaseapp.com',
+    storageBucket: 'sau-rehab-app.firebasestorage.app',
+    measurementId: 'G-3PSG63J8TP',
   );
 }

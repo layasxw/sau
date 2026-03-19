@@ -6,6 +6,7 @@ import 'steps/personal_info_step.dart';
 import 'steps/body_metrics_step.dart';
 import 'steps/diagnosis_step.dart';
 import 'steps/restrictions_step.dart';
+import '../../services/firestore_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHELL — owns _currentStep and _data, renders header + active step
@@ -21,19 +22,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Which step we're on right now (0 = Personal Info … 3 = Restrictions)
   int _currentStep = 0;
 
+  
+
   // One shared data object — every step writes its answers into this
   final _data = OnboardingData();
 
   // Called when the user taps "Continue" on any step
-  void _next() {
+  void _next() async{
     if (_currentStep < 3) {
       // Still more steps to go — just advance
       setState(() => _currentStep++);
     } else {
+      // Save everything to Firestore before navigating
+      await FirestoreService.saveUserData(_data);
+      await FirestoreService.saveMedicalProfile(_data);
+      await FirestoreService.saveRestrictions(_data);
       // Last step done — go to Dashboard
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomeScreen(data: _data)),
+        MaterialPageRoute(builder: (_) => HomeScreen()),
       );
     }
   }

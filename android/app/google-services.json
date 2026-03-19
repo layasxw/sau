@@ -1,27 +1,43 @@
 {
   "project_info": {
-    "project_number": "590337194193",
-    "firebase_url": "https://sau-app-7aee1-default-rtdb.firebaseio.com",
-    "project_id": "sau-app-7aee1",
-    "storage_bucket": "sau-app-7aee1.firebasestorage.app"
+    "project_number": "840406998562",
+    "project_id": "sau-rehab-app",
+    "storage_bucket": "sau-rehab-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:590337194193:android:c0f0885e0aee544b752df0",
+        "mobilesdk_app_id": "1:840406998562:android:10d58ccd7bc1888ed9b47b",
         "android_client_info": {
           "package_name": "com.example.rehab_assist"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "840406998562-g7u1g7s0l7chqhp77c4gtge6nm2jo98r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyAJZVF6KbSkK6wexSoQPxrohEFJ1HkuuxI"
+          "current_key": "AIzaSyAIMcLxbRP7wg0rl-P92RJgZOn-V0FKeUI"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "840406998562-g7u1g7s0l7chqhp77c4gtge6nm2jo98r.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "840406998562-693secvbq97dgpeoprcp8mh0ntd769jl.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.rehabAssist"
+              }
+            }
+          ]
         }
       }
     }

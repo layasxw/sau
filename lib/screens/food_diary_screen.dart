@@ -1,15 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import './onboarding/onboarding_data.dart';
+import '../services/firestore_service.dart';
+import './nutrition_calculator.dart';
+import './food_product.dart';
 
 class _Meal {
+  final String id;
   final String name, type;
   final int calories;
   final double protein, carbs, fat;
   final DateTime date;
   _Meal(
-      {required this.name,
+      {required this.id,
+      required this.name,
       required this.type,
       required this.calories,
       required this.protein,
@@ -19,26 +25,71 @@ class _Meal {
 }
 
 class FoodDiaryScreen extends StatefulWidget {
-  final OnboardingData data;
 
   const FoodDiaryScreen({
     super.key,
-    required this.data,
   });
   @override
   State<FoodDiaryScreen> createState() => _FoodDiaryScreenState();
+
+  
 }
 
   
 
 class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _loadNutritionTargets();
+  }
   int _dayOffset = 0;
-  final List<_Meal> _meals = [];
+  List<_Meal> _logs = [];
 
-  
+  double _dailyCalories = 0;
+  double _dailyProtein = 0;
+  double _dailyCarbs = 0;
+  double _dailyFat = 0;
+
+  Future<void> _loadNutritionTargets() async {
+    final profile = await FirestoreService.getUserProfile();
+    if (profile == null) return;
+    List<Map<String, dynamic>> meals = await FirestoreService.getMeals();
+
+    final data = OnboardingData();
+    data.height = (profile['height'] as num).toDouble();
+    data.weight = (profile['weight'] as num).toDouble();
+    data.age    = profile['age'] as int;
+    data.gender = profile['gender'] as String;
+
+    NutritionCalculator.calculate(data);
+    double bmi = data.weight / ((data.height / 100) * (data.height / 100));
+    setState(() {
+      _dailyCalories = data.dailyCalories;
+      _dailyProtein  = data.dailyProtein;
+      _dailyCarbs    = data.dailyCarbs;
+      _dailyFat      = data.dailyFat;
+    });
+    setState(() {
+      _logs = meals.map((m) {
+        return _Meal(
+          id: m['id'],
+          name: m['name'],
+          type: m['type'],
+          calories: m['calories'],
+          protein: (m['protein'] as num).toDouble(),
+          carbs: (m['carbs'] as num).toDouble(),
+          fat: (m['fat'] as num).toDouble(),
+          date: (m['date'] as Timestamp).toDate(),
+        );
+      }).toList();
+    });
+
+    
+  }
 
   DateTime get _date => DateTime.now().add(Duration(days: _dayOffset));
-  List<_Meal> get _todayMeals => _meals
+  List<_Meal> get _todayMeals => _logs
       .where((m) =>
           m.date.year == _date.year &&
           m.date.month == _date.month &&
@@ -51,24 +102,17 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   double get _fat => _todayMeals.fold(0.0, (s, m) => s + m.fat);
 
   double get _calorieProgress =>
-      widget.data.dailyCalories == 0
-          ? 0
-          : _cals / widget.data.dailyCalories;
+    _dailyCalories == 0 ? 0 : (_cals / _dailyCalories).clamp(0.0, 1.0);
 
   double get _proteinProgress =>
-      widget.data.dailyProtein == 0
-          ? 0
-          : _protein / widget.data.dailyProtein;
+      _dailyProtein == 0 ? 0 : (_protein / _dailyProtein).clamp(0.0, 1.0);
 
   double get _carbProgress =>
-      widget.data.dailyCarbs == 0
-          ? 0
-          : _carbs / widget.data.dailyCarbs;
+      _dailyCarbs == 0 ? 0 : (_carbs / _dailyCarbs).clamp(0.0, 1.0);
 
   double get _fatProgress =>
-      widget.data.dailyFat == 0
-          ? 0
-          : _fat / widget.data.dailyFat;
+      _dailyFat == 0 ? 0 : (_fat / _dailyFat).clamp(0.0, 1.0);
+
   List<DateTime> get _tabs =>
       List.generate(5, (i) => DateTime.now().add(Duration(days: i - 4)));
   String _day(DateTime d) =>
@@ -79,7 +123,18 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => _AddMealSheet(
-            date: _date, onAdd: (m) => setState(() => _meals.add(m))),
+            date: _date, onAdd: (m) async {
+              await FirestoreService.addMeal({
+                'name': m.name,
+                'type': m.type,
+                'calories': m.calories,
+                'protein': m.protein,
+                'carbs': m.carbs,
+                'fat': m.fat,
+                'date': m.date,
+              });
+              _loadNutritionTargets();
+            }),
       );
 
   @override
@@ -159,7 +214,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                 icon: Icons.local_fire_department_outlined,
                 bg: AppColors.calorieBg,
                 color: const Color(0xFFFF9800),
-                value: '$_cals / ${widget.data.dailyCalories.toStringAsFixed(0)}',
+                value: '$_cals / ${_dailyCalories.toStringAsFixed(0)}',
                 label: 'Calories'),
             _NutrCard(
                 icon: Icons.egg_outlined,
@@ -171,13 +226,13 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                 icon: Icons.grain,
                 bg: AppColors.carbsBg,
                 color: AppColors.primary,
-                value: '${_carbs.toStringAsFixed(1)}g / ${widget.data.dailyCarbs.toStringAsFixed(0)}g',
+                value: '${_carbs.toStringAsFixed(1)}g / ${_dailyCarbs.toStringAsFixed(0)}g',
                 label: 'Carbs'),
             _NutrCard(
                 icon: Icons.opacity,
                 bg: AppColors.fatBg,
                 color: const Color(0xFFFF7043),
-                value: '${_fat.toStringAsFixed(1)}g / ${widget.data.dailyFat.toStringAsFixed(0)}g',
+                value: '${_fat.toStringAsFixed(1)}g / ${_dailyFat.toStringAsFixed(0)}g',
                 label: 'Fat'),
           ],
         ),
@@ -194,7 +249,10 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           ...today.map((m) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _MealCard(
-                  meal: m, onDelete: () => setState(() => _meals.remove(m))))),
+                  meal: m, onDelete: () async {
+                    await FirestoreService.deleteMeal(m.id);
+                    setState(() => _logs.remove(m));
+                  }))),
         ] else
           Container(
             width: double.infinity,
@@ -379,145 +437,224 @@ class _AddMealSheet extends StatefulWidget {
   State<_AddMealSheet> createState() => _AddMealSheetState();
 }
 
+
 class _AddMealSheetState extends State<_AddMealSheet> {
-  final _name = TextEditingController(),
-      _cal = TextEditingController(),
-      _prot = TextEditingController(),
-      _carb = TextEditingController(),
-      _fat = TextEditingController();
-  String _type = 'Breakfast';
+  final _searchController = TextEditingController();
+  final _gramsController  = TextEditingController(text: '100');
+
+  String _mealType = 'Breakfast';
+  FoodProduct? _selected; // the food the user picked from the list
+  String _searchQuery = '';
+
   static const _types = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
-  InputDecoration _dec(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: AppColors.textSecondary),
-        filled: true,
-        fillColor: AppColors.background,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.divider)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-      );
+  // Filters the database by the search query
+  List<FoodProduct> get _filtered {
+    if (_searchQuery.isEmpty) return foodDatabase;
+    return foodDatabase
+        .where((f) => f.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
+
+  // Calculates nutrition based on selected food + entered grams
+  // All values in food_product.dart are per 100g, so we scale by grams/100
+  double get _gramsValue => double.tryParse(_gramsController.text) ?? 100;
+  double get _calcCalories => (_selected?.caloriesPer100g ?? 0) * _gramsValue / 100;
+  double get _calcProtein  => (_selected?.proteinPer100g  ?? 0) * _gramsValue / 100;
+  double get _calcCarbs    => (_selected?.carbsPer100g    ?? 0) * _gramsValue / 100;
+  double get _calcFat      => (_selected?.fatPer100g      ?? 0) * _gramsValue / 100;
+
+  void _onSave() {
+    if (_selected == null) return;
+    widget.onAdd(_Meal(
+      id:       '',
+      name:     _selected!.name,
+      type:     _mealType,
+      calories: _calcCalories.round(),
+      protein:  _calcProtein,
+      carbs:    _calcCarbs,
+      fat:      _calcFat,
+      date:     widget.date,
+    ));
+    Navigator.pop(context);
+  }
 
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        padding: EdgeInsets.fromLTRB(
-            24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-        child: SingleChildScrollView(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(
-              child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: AppColors.divider,
-                      borderRadius: BorderRadius.circular(2)))),
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      padding: EdgeInsets.fromLTRB(
+          24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Handle
+          Center(child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
+
           const Text('Log a Meal',
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 16),
+
+          // ── Meal type chips ────────────────────────────────────────────────
           Wrap(
-              spacing: 8,
-              children: _types.map((t) {
-                final sel = t == _type;
-                return GestureDetector(
-                  onTap: () => setState(() => _type = t),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                        color: sel ? AppColors.primary : AppColors.background,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color:
-                                sel ? AppColors.primary : AppColors.divider)),
-                    child: Text(t,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: sel ? Colors.white : AppColors.textPrimary)),
-                  ),
-                );
-              }).toList()),
-          const SizedBox(height: 16),
-          const Text('Food name',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+            spacing: 8,
+            children: _types.map((t) {
+              final sel = t == _mealType;
+              return GestureDetector(
+                onTap: () => setState(() => _mealType = t),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: sel ? AppColors.primary : AppColors.background,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: sel ? AppColors.primary : AppColors.divider)),
+                  child: Text(t,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                          color: sel ? Colors.white : AppColors.textPrimary)),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Search field ───────────────────────────────────────────────────
+          const Text('Search food',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           TextField(
-              controller: _name,
-              decoration: _dec('e.g. Chicken soup'),
-              textCapitalization: TextCapitalization.sentences),
+            controller: _searchController,
+            onChanged: (v) => setState(() => _searchQuery = v),
+            decoration: InputDecoration(
+              hintText: 'e.g. chicken, rice, soup...',
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+              filled: true, fillColor: AppColors.background,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.divider)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Food list ──────────────────────────────────────────────────────
+          // Shows up to 6 results — user scrolls horizontally through categories
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider)),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _filtered.length,
+              itemBuilder: (_, i) {
+                final food = _filtered[i];
+                final isSelected = _selected?.name == food.name;
+                return GestureDetector(
+                  onTap: () => setState(() => _selected = food),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.primaryLight : Colors.transparent,
+                      border: Border(
+                          bottom: BorderSide(color: AppColors.divider.withOpacity(0.5))),
+                    ),
+                    child: Row(children: [
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(food.name,
+                              style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w500,
+                                  color: isSelected ? AppColors.primary : AppColors.textPrimary)),
+                          Text(food.category,
+                              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        ],
+                      )),
+                      Text('${food.caloriesPer100g.toInt()} kcal/100g',
+                          style: TextStyle(fontSize: 12,
+                              color: isSelected ? AppColors.primary : AppColors.textSecondary)),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
           const SizedBox(height: 16),
-          const Text('Nutrition (optional)',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary)),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
+
+          // ── Grams input + calculated nutrition ────────────────────────────
+          if (_selected != null) ...[
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              const Text('Grams:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary)),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 80,
                 child: TextField(
-                    controller: _cal,
-                    decoration: _dec('kcal'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
-            const SizedBox(width: 8),
-            Expanded(
-                child: TextField(
-                    controller: _prot,
-                    decoration: _dec('Protein g'),
-                    keyboardType: TextInputType.number)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: TextField(
-                    controller: _carb,
-                    decoration: _dec('Carbs g'),
-                    keyboardType: TextInputType.number)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: TextField(
-                    controller: _fat,
-                    decoration: _dec('Fat g'),
-                    keyboardType: TextInputType.number)),
-          ]),
-          const SizedBox(height: 24),
+                  controller: _gramsController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}), // recalculate on change
+                  decoration: InputDecoration(
+                    filled: true, fillColor: AppColors.background,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.divider)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text('g', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+            ]),
+            const SizedBox(height: 12),
+
+            // Nutrition preview
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NutrPreview('${_calcCalories.toStringAsFixed(0)}', 'kcal'),
+                  _NutrPreview('${_calcProtein.toStringAsFixed(1)}g', 'protein'),
+                  _NutrPreview('${_calcCarbs.toStringAsFixed(1)}g', 'carbs'),
+                  _NutrPreview('${_calcFat.toStringAsFixed(1)}g', 'fat'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Save button ────────────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () {
-                if (_name.text.trim().isEmpty) return;
-                widget.onAdd(_Meal(
-                    name: _name.text.trim(),
-                    type: _type,
-                    calories: int.tryParse(_cal.text) ?? 0,
-                    protein: double.tryParse(_prot.text) ?? 0,
-                    carbs: double.tryParse(_carb.text) ?? 0,
-                    fat: double.tryParse(_fat.text) ?? 0,
-                    date: widget.date));
-                Navigator.pop(context);
-              },
+              onPressed: _selected == null ? null : _onSave,
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppColors.divider,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   elevation: 0),
@@ -525,6 +662,20 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
-        ])),
-      );
+        ]),
+      ),
+    );
+  }
+}
+
+// Small helper widget for the nutrition preview row
+class _NutrPreview extends StatelessWidget {
+  final String value, label;
+  const _NutrPreview(this.value, this.label);
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+        color: AppColors.primary)),
+    Text(label, style: const TextStyle(fontSize: 11, color: AppColors.primary)),
+  ]);
 }

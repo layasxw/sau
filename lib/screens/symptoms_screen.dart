@@ -1,12 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
 
 class _Log {
+  final String id;
   final DateTime date;
   final Map<String, int> symptoms;
   final String mood, notes;
   _Log(
-      {required this.date,
+      {required this.id,
+      required this.date,
       required this.symptoms,
       required this.mood,
       required this.notes});
@@ -23,14 +27,47 @@ class SymptomsScreen extends StatefulWidget {
 
 class _SymptomsScreenState extends State<SymptomsScreen> {
   bool _list = true;
-  final List<_Log> _logs = [];
+  List<_Log> _logs = [];
+  
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadSymptoms();
+  }
+
+
+  Future<void> _loadSymptoms() async {
+    final data = await FirestoreService.getSymptoms();
+    setState(() {
+      _logs = data.map((l) {
+        return _Log(
+          id: l['id'], 
+          date: (l['date'] as Timestamp).toDate(), 
+          symptoms: Map<String, int>.from(l['symptoms'] ?? {}), 
+          mood: l['mood'] ?? '', 
+          notes: l['notes'] ?? ''
+        );
+      }).toList();
+    });
+  } 
 
   void _showSheet() => showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) =>
-            _CheckInSheet(onSave: (l) => setState(() => _logs.insert(0, l))),
+            _CheckInSheet(onSave: (l) async {
+              print('saving symptom...');
+              await FirestoreService.saveSymptom({
+                'date': l.date,
+                'symptoms': l.symptoms,
+                'mood': l.mood,
+                'notes': l.notes,
+              });
+              print('saved!');
+              _loadSymptoms();
+            }),
       );
 
   @override
@@ -531,6 +568,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   ? null
                   : () {
                       widget.onSave(_Log(
+                          id: '',
                           date: DateTime.now(),
                           symptoms: Map.from(_sel),
                           mood: _mood,

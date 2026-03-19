@@ -9,9 +9,8 @@ import '../theme/app_theme.dart';
 import './onboarding/onboarding_data.dart';
 
 class HomeScreen extends StatefulWidget {
-  final OnboardingData data;
   
-  const HomeScreen({super.key, required this.data});
+  const HomeScreen({super.key});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -74,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           DashboardScreen(onNavigate: navigateTo),
           const RemindersScreen(),
-          FoodDiaryScreen(data: widget.data),
+          FoodDiaryScreen(),
           const SymptomsScreen(),
           const ProfileScreen(),
         ],
