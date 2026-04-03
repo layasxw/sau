@@ -401,6 +401,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   final Map<String, int> _sel = {};
   String _mood = '';
   final _notes = TextEditingController();
+  final _aiText = TextEditingController();
+  bool _aiLoading = false;
 
   @override
   Widget build(BuildContext context) => Container(

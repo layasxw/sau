@@ -116,6 +116,7 @@ class FirestoreService {
     .orderBy('date', descending: true)
     .get();
 
+
     return logs.docs.map((doc) {
       final data = doc.data();
       data['id'] = doc.id;
