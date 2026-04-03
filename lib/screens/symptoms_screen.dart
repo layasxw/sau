@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class _Log {
   final String id;
@@ -404,6 +406,34 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   final _aiText = TextEditingController();
   bool _aiLoading = false;
 
+  Future<void> _analyzeWithAI() async {
+    if (_aiText.text.trim().isEmpty) return;
+    setState(() => _aiLoading = true);
+    
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:8000/symptoms'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'text': _aiText.text.trim()}),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _sel.clear();
+          final symptoms = Map<String, dynamic>.from(data['symptoms'] ?? {});
+          symptoms.forEach((k, v) => _sel[k] = (v as num).toInt());
+          _mood = data['mood'] ?? '';
+          _notes.text = data['notes'] ?? '';
+        });
+      }
+    } catch (e) {
+      print('AI error: $e');
+    } finally {
+      setState(() => _aiLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Container(
         decoration: const BoxDecoration(
@@ -433,6 +463,42 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               style: const TextStyle(
                   fontSize: 13, color: AppColors.textSecondary)),
           const SizedBox(height: 20),
+          const Text('Describe how you feel',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 8),
+          TextField(
+              controller: _aiText,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'e.g. I have a headache for 2 days and feel nauseous...',
+                hintStyle: const TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+              )),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _aiLoading ? null : _analyzeWithAI,
+              icon: _aiLoading 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.auto_awesome, size: 16),
+              label: Text(_aiLoading ? 'Analyzing...' : 'Analyze with AI'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 12),
           const Text('Symptoms today',
               style: TextStyle(
                   fontSize: 14,

@@ -2,13 +2,19 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
 client = OpenAI(
-    api_key="",
+    api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1"
 )
+
+
 
 class SymptomRequest(BaseModel):
     text: str
