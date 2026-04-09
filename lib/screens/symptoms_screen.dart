@@ -4,6 +4,7 @@ import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class _Log {
   final String id;
@@ -405,6 +406,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   final _notes = TextEditingController();
   final _aiText = TextEditingController();
   bool _aiLoading = false;
+  final _speech = stt.SpeechToText();
+  bool _isListening = false;
 
   Future<void> _analyzeWithAI() async {
     if (_aiText.text.trim().isEmpty) return;
@@ -412,7 +415,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     
     try {
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/symptoms'),
+        Uri.parse('http://127.0.0.1:8000/symptoms'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'text': _aiText.text.trim()}),
       );
@@ -431,6 +434,21 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       print('AI error: $e');
     } finally {
       setState(() => _aiLoading = false);
+    }
+  }
+
+  Future<void> _listen() async {
+    if (!_isListening) {
+      final available = await _speech.initialize();
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(onResult: (result) {
+          setState(() => _aiText.text = result.recognizedWords);
+        });
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
     }
   }
 
@@ -466,19 +484,35 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           const Text('Describe how you feel',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(
-              controller: _aiText,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'e.g. I have a headache for 2 days and feel nauseous...',
-                hintStyle: const TextStyle(color: AppColors.textSecondary),
-                filled: true,
-                fillColor: AppColors.background,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-              )),
+          
+          Row(
+          children: [
+            Expanded(
+              child: 
+                TextField(
+                  controller: _aiText,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. I have a headache for 2 days and feel nauseous...',
+                    hintStyle: const TextStyle(color: AppColors.textSecondary),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                  )),
+              ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _listen,
+              icon: Icon(
+                _isListening ? Icons.mic : Icons.mic_none,
+                color: _isListening ? Colors.red : AppColors.primary,
+              ),
+            ),
+          ],
+        ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DashboardScreen extends StatefulWidget {
   final void Function(int)? onNavigate;
@@ -9,10 +12,14 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
+
+
 class _DashboardScreenState extends State<DashboardScreen> {
   String? _fullName;
   String? _diagnosis;
   int _remindersCount = 0;
+  Map<String, dynamic>? _aiData;
+  bool _aiLoading = false;
 
   void _go(int i) => widget.onNavigate?.call(i);
 
@@ -22,6 +29,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadInfo();
   }
   
+  dynamic _toJson(dynamic value) {
+    if (value is Timestamp) return value.toDate().toIso8601String();
+    if (value is Map) return value.map((k, v) => MapEntry(k, _toJson(v)));
+    if (value is List) return value.map((v) => _toJson(v)).toList();
+    return value;
+  }
 
   Future<void> _loadInfo() async {
     // All three requests run at the same time
@@ -48,6 +61,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const months = ['January','February','March','April','May','June','July',
         'August','September','October','November','December'];
     return '${days[n.weekday - 1]}, ${months[n.month - 1]} ${n.day}';
+  }
+
+  Future<void> _analyzeRecovery() async {
+    setState(() => _aiLoading = true);
+    try {
+      final results = await Future.wait([
+        FirestoreService.getUserProfile(),
+        FirestoreService.getMedicalProfile(),
+        FirestoreService.getSymptoms(),
+        FirestoreService.getMeals(),
+      ]);
+
+      final profile = results[0] as Map<String, dynamic>?;
+      final medical = results[1] as Map<String, dynamic>?;
+      final symptoms = results[2] as List<Map<String, dynamic>>;
+      final meals = results[3] as List<Map<String, dynamic>>;
+
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8001/analyze'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'profile': _toJson(profile),
+          'medical': _toJson(medical),
+          'recent_symptoms': _toJson(symptoms.take(5).toList()),
+          'recent_meals': _toJson(meals.take(5).toList()),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => _aiData = data);
+      }
+    } catch (e) {
+      print('AI error: $e');
+    } finally {
+      setState(() => _aiLoading = false);
+    }
   }
 
   @override
@@ -121,46 +171,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
             bold: true),
       ]);
 
-  Widget _buildAIInsights() => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-            color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [
-            Icon(Icons.auto_awesome, color: AppColors.primary, size: 22),
-            SizedBox(width: 8),
-            Text('AI Insights',
-                style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
-          ]),
-          const SizedBox(height: 4),
-          const Text('Personalized recommendations based on your diagnosis',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-          const SizedBox(height: 16),
-          _InsightCard(
-              title: 'Strict Dietary Adherence',
-              subtitle:
-                  'Avoid spicy, fatty, and high-fiber foods that irritate the GI tract. Choose soft, easily digestible meals like cooked vegetables, white rice, and lean protein.',
-              isImportant: true,
-              onTap: () => _go(2)),
-          const SizedBox(height: 10),
-          _InsightCard(
-              title: 'Watch for Red Flags',
-              subtitle:
-                  'Immediately contact your doctor if you notice blood in stool, sudden weight loss, severe abdominal pain, or persistent vomiting.',
-              isImportant: true,
-              onTap: () => _go(3)),
-          const SizedBox(height: 10),
-          const _InsightCard(
-              title: 'Gentle Daily Movement',
-              subtitle:
-                  'Short 10–15 min walks support recovery and reduce fatigue. Do not increase intensity without consulting your doctor.',
-              isImportant: false),
-        ]),
-      );
+  Widget _buildAIInsights() {
+    final risk = _aiData?['risk'] as String?;
+    final riskColor = risk == 'high' ? Colors.red : risk == 'medium' ? Colors.orange : Colors.green;
+    final riskLabel = risk == 'high' ? 'High Risk' : risk == 'medium' ? 'Medium Risk' : 'Low Risk';
 
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.auto_awesome, color: AppColors.primary, size: 22),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('AI Recovery Advisor',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary))),
+          if (risk != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: riskColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+              child: Text(riskLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: riskColor)),
+            ),
+        ]),
+        const SizedBox(height: 4),
+        const Text('Personalized analysis based on your data',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        if (_aiData != null) ...[
+          const SizedBox(height: 16),
+          _aiRow(Icons.monitor_heart_outlined, 'Status', _aiData!['status']),
+          _aiRow(Icons.warning_amber_outlined, 'Concerns', _aiData!['concerns']),
+          _aiRow(Icons.restaurant_outlined, 'Nutrition', _aiData!['nutrition']),
+          _aiRow(Icons.directions_walk, 'Activity', _aiData!['activity']),
+          _aiRow(Icons.local_hospital_outlined, 'Doctor', _aiData!['doctor'], isRed: risk == 'high'),
+        ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: ElevatedButton.icon(
+            onPressed: _aiLoading ? null : _analyzeRecovery,
+            icon: _aiLoading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.auto_awesome, size: 16),
+            label: Text(_aiLoading ? 'Analyzing...' : 'Analyze my recovery'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _aiRow(IconData icon, String label, String? text, {bool isRed = false}) {
+    if (text == null) return const SizedBox();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+              color: isRed ? Colors.red.withOpacity(0.1) : AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, size: 16, color: isRed ? Colors.red : AppColors.primary),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: isRed ? Colors.red : AppColors.textSecondary)),
+          const SizedBox(height: 2),
+          Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4)),
+        ])),
+      ]),
+    );
+  }
   Widget _buildQuickActions() => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(

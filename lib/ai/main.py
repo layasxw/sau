@@ -4,6 +4,8 @@ from openai import OpenAI
 import json
 import os
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
+
 
 load_dotenv()
 
@@ -14,7 +16,12 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class SymptomRequest(BaseModel):
     text: str
@@ -37,7 +44,7 @@ Extract symptoms from user text and return ONLY a valid JSON object:
 }
 Rules:
 - symptom names in English, capitalized
-- severity 1-10
+- severity 1-5
 - return ONLY JSON, nothing else"""
             },
             {
