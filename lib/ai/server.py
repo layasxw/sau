@@ -178,3 +178,40 @@ def analyze_meal(request: MealAnalysisRequest):
     raw = response.choices[0].message.content
     clean = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(clean)
+
+class ReminderSuggestionRequest(BaseModel):
+    symptoms: Optional[list] = None
+    meals: Optional[list] = None
+    mood: Optional[str] = None
+
+@app.post("/suggest-reminders")
+def suggest_reminders(request: ReminderSuggestionRequest):
+    prompt = f"""
+Симптомы сегодня: {request.symptoms or 'нет данных'}
+Приемы пищи: {request.meals or 'нет данных'}
+Настроение: {request.mood or 'нет данных'}
+"""
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": """Ты — помощник по реабилитации после рака желудка.
+На основе симптомов и питания предложи 2-3 мягких напоминания для пациента.
+
+Правила:
+- Никаких точных цифр (не пиши "выпей 8 стаканов", пиши "пей воду регулярно")
+- Только безопасные общие рекомендации
+- Короткие и понятные
+
+Верни ТОЛЬКО валидный JSON без markdown:
+{
+  "reminders": [
+    {"title": "Короткое название", "description": "Краткое описание"},
+    {"title": "Короткое название", "description": "Краткое описание"}
+  ]
+}"""},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    raw = response.choices[0].message.content
+    clean = raw.replace("```json", "").replace("```", "").strip()
+    return json.loads(clean)
