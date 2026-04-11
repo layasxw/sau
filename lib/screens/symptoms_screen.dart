@@ -11,12 +11,15 @@ class _Log {
   final DateTime date;
   final Map<String, int> symptoms;
   final String mood, notes;
-  _Log(
-      {required this.id,
-      required this.date,
-      required this.symptoms,
-      required this.mood,
-      required this.notes});
+  final Map<String, dynamic>? aiAnalysis;
+  _Log({
+    required this.id,
+    required this.date,
+    required this.symptoms,
+    required this.mood,
+    required this.notes,
+    this.aiAnalysis,
+  });
   int get avg => symptoms.isEmpty
       ? 0
       : (symptoms.values.fold(0, (s, v) => s + v) / symptoms.length).round();
@@ -49,7 +52,10 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           date: (l['date'] as Timestamp).toDate(), 
           symptoms: Map<String, int>.from(l['symptoms'] ?? {}), 
           mood: l['mood'] ?? '', 
-          notes: l['notes'] ?? ''
+          notes: l['notes'] ?? '',
+          aiAnalysis: l['aiAnalysis'] != null 
+            ? Map<String, dynamic>.from(l['aiAnalysis']) 
+            : null
         );
       }).toList();
     });
@@ -60,15 +66,14 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) =>
-            _CheckInSheet(onSave: (l) async {
-              print('saving symptom...');
+            _CheckInSheet(onSave: (l, aiResult) async {
               await FirestoreService.saveSymptom({
                 'date': l.date,
                 'symptoms': l.symptoms,
                 'mood': l.mood,
                 'notes': l.notes,
+                'aiAnalysis': aiResult,
               });
-              print('saved!');
               _loadSymptoms();
             }),
       );
@@ -308,39 +313,37 @@ class _LogCard extends StatelessWidget {
 class _AiTip extends StatelessWidget {
   final _Log log;
   const _AiTip({required this.log});
-  String get _tip {
-    final names = log.symptoms.keys.toList();
-    if (names.contains('Abdominal pain') || names.contains('Nausea')) {
-      return 'GI discomfort is common during treatment. Eat small, bland meals every 2–3 hours. Avoid spicy/fatty foods. Seek care if pain is severe or persistent.';
-    }
-    if (names.contains('Fatigue') || names.contains('Weakness')) {
-      return 'Cancer-related fatigue is expected. Rest when needed, keep light activity, and ensure adequate protein. Discuss with Dr. Bekov if it\'s affecting daily life.';
-    }
-    if (names.contains('Fever')) {
-      return 'Fever during cancer treatment may signal infection. If temperature exceeds 38°C (100.4°F), contact your care team immediately — do not wait.';
-    }
-    if (names.contains('Loss of appetite')) {
-      return 'Poor appetite is common with GI cancer. Try small, frequent high-calorie meals. Nutritional supplements can help. Discuss with your dietitian.';
-    }
-    return 'Continue monitoring your symptoms. Note any changes in frequency or severity and discuss them at your next appointment. Contact your team if symptoms worsen.';
-  }
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: AppColors.primaryLight,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.primary.withOpacity(0.2))),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.auto_awesome, size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(_tip,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.primary, height: 1.45))),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final ai = log.aiAnalysis;
+    final text = ai != null 
+        ? '${ai['summary'] ?? ''} ${ai['advice'] ?? ''}'.trim()
+        : 'Continue monitoring your symptoms and discuss them at your next appointment.';
+    final isHigh = ai?['risk'] == 'high';
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: isHigh ? Colors.red.withOpacity(0.05) : AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: isHigh 
+                  ? Colors.red.withOpacity(0.3) 
+                  : AppColors.primary.withOpacity(0.2))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.auto_awesome, size: 16, 
+            color: isHigh ? Colors.red : AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 12, 
+                    color: isHigh ? Colors.red : AppColors.primary, 
+                    height: 1.45))),
+      ]),
+    );
+  }
 }
 
 class _Toggle extends StatelessWidget {
@@ -376,7 +379,7 @@ class _Toggle extends StatelessWidget {
 
 // ── Check-in Sheet ─────────────────────────────────────────────────────────────
 class _CheckInSheet extends StatefulWidget {
-  final void Function(_Log) onSave;
+  final void Function(_Log, Map<String, dynamic>?) onSave;
   const _CheckInSheet({required this.onSave});
   @override
   State<_CheckInSheet> createState() => _CheckInSheetState();
@@ -408,6 +411,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   bool _aiLoading = false;
   final _speech = stt.SpeechToText();
   bool _isListening = false;
+  Map<String, dynamic>? _aiResult;
+  bool _aiAnalyzing = false;
 
   Future<void> _analyzeWithAI() async {
     if (_aiText.text.trim().isEmpty) return;
@@ -449,6 +454,28 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     } else {
       setState(() => _isListening = false);
       _speech.stop();
+    }
+  }
+
+  Future<void> _analyzeSymptoms() async {
+    setState(() => _aiAnalyzing = true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://sau-production.up.railway.app/analyze-symptoms'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'symptoms': _sel,
+          'mood': _mood,
+          'notes': _notes.text.trim(),
+        }),
+      );
+      if (response.statusCode == 200) {
+        setState(() => _aiResult = jsonDecode(response.body));
+      }
+    } catch (e) {
+      print('AI error: $e');
+    } finally {
+      setState(() => _aiAnalyzing = false);
     }
   }
 
@@ -662,21 +689,76 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                         const BorderSide(color: AppColors.primary, width: 1.5)),
               )),
           const SizedBox(height: 24),
+          if (_aiResult != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _aiResult!['risk'] == 'high'
+                    ? Colors.red.withOpacity(0.05)
+                    : AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _aiResult!['risk'] == 'high'
+                      ? Colors.red.withOpacity(0.3)
+                      : AppColors.primary.withOpacity(0.2),
+                ),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.auto_awesome, size: 16,
+                      color: _aiResult!['risk'] == 'high' ? Colors.red : AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text('AI Analysis',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _aiResult!['risk'] == 'high' ? Colors.red : AppColors.primary)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _aiResult!['risk'] == 'high'
+                          ? Colors.red
+                          : _aiResult!['risk'] == 'medium'
+                              ? Colors.orange
+                              : Colors.green,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(_aiResult!['risk']!.toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                Text(_aiResult!['summary'] ?? '',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4)),
+                const SizedBox(height: 6),
+                Text(_aiResult!['advice'] ?? '',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+              ]),
+            ),
+          ],
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
               onPressed: (_sel.isEmpty && _mood.isEmpty)
                   ? null
-                  : () {
-                      widget.onSave(_Log(
-                          id: '',
-                          date: DateTime.now(),
-                          symptoms: Map.from(_sel),
-                          mood: _mood,
-                          notes: _notes.text.trim()));
-                      Navigator.pop(context);
-                    },
+                  : _aiResult == null
+                      ? () async {
+                          await _analyzeSymptoms();
+                        }
+                      : () {
+                          widget.onSave(_Log(
+                              id: '',
+                              date: DateTime.now(),
+                              symptoms: Map.from(_sel),
+                              mood: _mood,
+                              notes: _notes.text.trim()),
+                              _aiResult,
+                          );
+                          Navigator.pop(context);
+                        },
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -684,11 +766,13 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   elevation: 0),
-              child: const Text('Save Check-in',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              child: _aiAnalyzing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(_aiResult == null ? 'Analyze & Save' : 'Confirm & Save',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
-          ),
-        ])),
+          ),       
+         ])),
       );
 }
 

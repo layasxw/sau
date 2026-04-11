@@ -6,6 +6,8 @@ import './onboarding/onboarding_data.dart';
 import '../services/firestore_service.dart';
 import './nutrition_calculator.dart';
 import './food_product.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class _Meal {
   final String id;
@@ -48,6 +50,8 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   }
   int _dayOffset = 0;
   List<_Meal> _logs = [];
+  Map<String, dynamic>? _aiMealData;
+  bool _aiMealLoading = false;
 
   double _dailyCalories = 0;
   double _dailyProtein = 0;
@@ -88,7 +92,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
       }).toList();
     });
 
-    
+    await _analyzeMeals();
   }
 
   DateTime get _date => DateTime.now().add(Duration(days: _dayOffset));
@@ -139,6 +143,31 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
               _loadNutritionTargets();
             }),
       );
+
+    Future<void> _analyzeMeals() async {
+      if (_todayMeals.isEmpty) return;
+      setState(() => _aiMealLoading = true);
+      try {
+        final response = await http.post(
+          Uri.parse('https://sau-production.up.railway.app/analyze-meal'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'meals': _todayMeals.map((m) => {'name': m.name, 'type': m.type, 'calories': m.calories}).toList(),
+            'total_calories': _cals,
+            'total_protein': _protein,
+            'total_carbs': _carbs,
+            'total_fat': _fat,
+          }),
+        );
+        if (response.statusCode == 200) {
+          setState(() => _aiMealData = jsonDecode(response.body));
+        }
+      } catch (e) {
+        print('AI error: $e');
+      } finally {
+        setState(() => _aiMealLoading = false);
+      }
+    }
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +270,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
         ),
         const SizedBox(height: 20),
         if (today.isNotEmpty) ...[
-          _AiBanner(calories: _cals),
+          _AiBanner(aiData: _aiMealData, loading: _aiMealLoading),
           const SizedBox(height: 20),
           const Text("Logged meals",
               style: TextStyle(
@@ -395,15 +424,33 @@ class _MealCard extends StatelessWidget {
 }
 
 class _AiBanner extends StatelessWidget {
-  final int calories;
-  const _AiBanner({required this.calories});
+  final Map<String, dynamic>? aiData;
+  final bool loading;
+  const _AiBanner({this.aiData, this.loading = false});
+
   @override
   Widget build(BuildContext context) {
-    final msg = calories < 1200
-        ? 'Calorie intake is low. For GI cancer recovery, eat small frequent meals — try adding a soft snack like yogurt or a banana.'
-        : calories > 2200
-            ? 'High intake today. Prioritize light, easily digestible foods and avoid heavy fats or spicy items.'
-            : 'Good balance today! Continue with soft, nutrient-dense foods. Avoid raw vegetables and high-fiber items.';
+    if (loading) {
+      return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withOpacity(0.2))),
+      child: const Row(children: [
+        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        SizedBox(width: 10),
+        Text('Analyzing your nutrition...', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+      ]),
+    );
+    }
+
+    final msg = aiData?['summary'] ?? 'Log more meals to get AI nutrition insights.';
+    final advice = aiData?['advice'] ?? '';
+    final rating = aiData?['rating'] ?? 'good';
+    final isLow = rating == 'low';
+    final isHigh = rating == 'high';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -413,24 +460,32 @@ class _AiBanner extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
         const SizedBox(width: 10),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('AI Nutrition Analysis',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary)),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Text('AI Nutrition Analysis',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isLow ? Colors.orange : isHigh ? Colors.red : Colors.green,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(rating.toUpperCase(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+            ),
+          ]),
           const SizedBox(height: 4),
-          Text(msg,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.primary, height: 1.4)),
+          Text(msg, style: const TextStyle(fontSize: 13, color: AppColors.primary, height: 1.4)),
+          if (advice.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(advice, style: const TextStyle(fontSize: 12, color: AppColors.primary, height: 1.4)),
+          ],
         ])),
       ]),
     );
   }
 }
-
 // ── Add Meal Sheet ─────────────────────────────────────────────────────────────
 class _AddMealSheet extends StatefulWidget {
   final DateTime date;
