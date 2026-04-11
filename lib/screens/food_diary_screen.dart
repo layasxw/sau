@@ -24,6 +24,9 @@ class _Meal {
       required this.date});
 }
 
+// показывать только сколько съел а не сколько нужно
+// добавить напоминания пить воду 
+
 class FoodDiaryScreen extends StatefulWidget {
 
   const FoodDiaryScreen({

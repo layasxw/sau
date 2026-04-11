@@ -415,7 +415,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/symptoms'),
+        Uri.parse('https://sau-production.up.railway.app/symptoms'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'text': _aiText.text.trim()}),
       );

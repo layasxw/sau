@@ -79,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final meals = results[3] as List<Map<String, dynamic>>;
 
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8001/analyze'),
+        Uri.parse('https://sau-production.up.railway.app/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'profile': _toJson(profile),
