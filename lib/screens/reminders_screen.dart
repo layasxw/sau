@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER FUNCTION — converts a type string into icon + colors
@@ -72,7 +75,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
   List<_Reminder> _items = [];
   int _filter = 0;
   static const _filters = ['All', 'Today', 'Upcoming', 'Completed'];
-
+  List<Map<String, dynamic>> _suggestedReminders = [];
+  bool _suggestionsLoading = false;
   // _visible is a getter — it re-filters _items every time build() runs.
   // A getter is like a variable that computes its value on demand.
   List<_Reminder> get _visible {
@@ -91,6 +95,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
   void initState() {
     super.initState();
     _loadReminders(); // load from Firestore as soon as screen opens
+    _loadSuggestions();
   }
 
   // Fetches all reminders from Firestore and puts them into _items.
@@ -142,6 +147,45 @@ class _RemindersScreenState extends State<RemindersScreen> {
         ),
       );
 
+    Future<void> _loadSuggestions() async {
+      setState(() => _suggestionsLoading = true);
+      try {
+        final symptoms = await FirestoreService.getSymptoms();
+        final meals = await FirestoreService.getMeals();
+
+        final todaySymptoms = symptoms.where((s) {
+          final date = (s['date'] as Timestamp).toDate();
+          final now = DateTime.now();
+          return date.year == now.year && date.month == now.month && date.day == now.day;
+        }).toList();
+
+        final todayMeals = meals.where((m) {
+          final date = (m['date'] as Timestamp).toDate();
+          final now = DateTime.now();
+          return date.year == now.year && date.month == now.month && date.day == now.day;
+        }).toList();
+
+        final response = await http.post(
+          Uri.parse('https://sau-production.up.railway.app/suggest-reminders'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'symptoms': todaySymptoms.map((s) => s['symptoms']).toList(),
+            'meals': todayMeals.map((m) => m['name']).toList(),
+            'mood': todaySymptoms.isNotEmpty ? todaySymptoms.first['mood'] : null,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          setState(() => _suggestedReminders = List<Map<String, dynamic>>.from(data['reminders']));
+        }
+      } catch (e) {
+        print('AI suggestions error: $e');
+      } finally {
+        setState(() => _suggestionsLoading = false);
+      }
+    }
+
   @override
   Widget build(BuildContext context) {
     final list = _visible;
@@ -175,6 +219,78 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     fontSize: 16, fontWeight: FontWeight.w600)),
           ),
         ),
+        if (_suggestionsLoading) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(14)),
+            child: const Row(children: [
+              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 10),
+              Text('Getting AI suggestions...', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+            ]),
+          ),
+        ] else if (_suggestedReminders.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withOpacity(0.2))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
+                SizedBox(width: 6),
+                Text('AI Suggested Reminders',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              ]),
+              const SizedBox(height: 4),
+              const Text('Based on your symptoms and meals today',
+                  style: TextStyle(fontSize: 12, color: AppColors.primary)),
+              const SizedBox(height: 12),
+              ..._suggestedReminders.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(r['title'] ?? '', style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Text(r['description'] ?? '', style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary)),
+                  ])),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      final meta = _iconForType('Other');
+                      await FirestoreService.addReminder({
+                        'title': r['title'],
+                        'type': 'Other',
+                        'recurrence': 'Once',
+                        'time': '09:00',
+                        'description': r['description'],
+                        'hasAiBadge': true,
+                        'completed': false,
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
+                      setState(() => _suggestedReminders.remove(r));
+                      _loadReminders();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(20)),
+                      child: const Text('Add', style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                    ),
+                  ),
+                ]),
+              )),
+            ]),
+          ),
+        ],
         const SizedBox(height: 16),
         // Filter chips
         SingleChildScrollView(

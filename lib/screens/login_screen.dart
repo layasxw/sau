@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:rehab_assist/screens/doctor_screen.dart';
+import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
@@ -55,9 +57,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError(error);
     } else {
       // Success — go to HomeScreen, remove login from the stack
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen()),
-      );
+      final role = await FirestoreService.getRole();
+      if (!mounted) return;
+      if (role == 'doctor') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DoctorScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+        );
+      }
     }
   }
 

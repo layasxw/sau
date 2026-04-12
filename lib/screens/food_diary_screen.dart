@@ -9,6 +9,7 @@ import './food_product.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+//todo убрать каллории
 class _Meal {
   final String id;
   final String name, type;
@@ -64,10 +65,10 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     List<Map<String, dynamic>> meals = await FirestoreService.getMeals();
 
     final data = OnboardingData();
-    data.height = (profile['height'] as num).toDouble();
-    data.weight = (profile['weight'] as num).toDouble();
-    data.age    = profile['age'] as int;
-    data.gender = profile['gender'] as String;
+    data.height = (profile['height'] as num?)?.toDouble() ?? 170;
+    data.weight = (profile['weight'] as num?)?.toDouble() ?? 70;
+    data.age    = (profile['age'] as num?)?.toInt() ?? 30;
+    data.gender = profile['gender'] as String? ?? 'Male';
 
     NutritionCalculator.calculate(data);
     double bmi = data.weight / ((data.height / 100) * (data.height / 100));

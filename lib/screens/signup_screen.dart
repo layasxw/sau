@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:rehab_assist/screens/doctor_screen.dart';
 import 'package:rehab_assist/screens/onboarding/onboarding_screen.dart';
+import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
@@ -11,6 +13,9 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
+// один диагноз
+// мед история обяз
+// дата операции 
 class _SignupScreenState extends State<SignupScreen> {
   final _nameController            = TextEditingController();
   final _emailController           = TextEditingController();
@@ -20,6 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
   bool _isLoading    = false;
+  String _role = 'patient';
 
   @override
   void dispose() {
@@ -70,10 +76,19 @@ class _SignupScreenState extends State<SignupScreen> {
       _showError(error);
     } else {
       // Account created — go to onboarding so user fills in their profile
-      // Use pushReplacement so they can't go back to the signup screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-      );
+      // Use pushReplacement so they can't go back to the signup screenrr
+
+      await FirestoreService.saveRole(_role);
+
+      if (_role == 'doctor') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DoctorScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+      }
     }
   }
 
@@ -187,7 +202,48 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
+                  const SizedBox(height: 20),
+                  _label('I am a'),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: GestureDetector(
+                      onTap: () => setState(() => _role = 'patient'),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _role == 'patient' ? AppColors.primary : AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _role == 'patient' ? AppColors.primary : AppColors.divider),
+                        ),
+                        child: Column(children: [
+                          Icon(Icons.person_outline, color: _role == 'patient' ? Colors.white : AppColors.textSecondary),
+                          const SizedBox(height: 4),
+                          Text('Patient', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: _role == 'patient' ? Colors.white : AppColors.textPrimary)),
+                        ]),
+                      ),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: GestureDetector(
+                      onTap: () => setState(() => _role = 'doctor'),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _role == 'doctor' ? AppColors.primary : AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _role == 'doctor' ? AppColors.primary : AppColors.divider),
+                        ),
+                        child: Column(children: [
+                          Icon(Icons.medical_services_outlined, color: _role == 'doctor' ? Colors.white : AppColors.textSecondary),
+                          const SizedBox(height: 4),
+                          Text('Doctor', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: _role == 'doctor' ? Colors.white : AppColors.textPrimary)),
+                        ]),
+                      ),
+                    )),
+                  ]),
                   // Terms checkbox
                   Row(children: [
                     Checkbox(

@@ -155,5 +155,46 @@ class FirestoreService {
         .doc(mealId)
         .delete();
   }
+
+  static Future<void> saveRole(String role) async {
+    await _db.collection('users').doc(_uid).set({
+      'role': role,
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<String?> getRole() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    return doc.data()?['role'] as String?;
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllPatients() async {
+    final snapshot = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'patient')
+        .get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getPatientSymptoms(String patientId) async {
+    final logs = await _db
+        .collection('users')
+        .doc(patientId)
+        .collection('symptomLogs')
+        .orderBy('date', descending: true)
+        .limit(5)
+        .get();
+    return logs.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+  }
 }
+
+
 
