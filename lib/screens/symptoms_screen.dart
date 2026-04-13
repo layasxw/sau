@@ -431,7 +431,11 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           _sel.clear();
           final symptoms = Map<String, dynamic>.from(data['symptoms'] ?? {});
           symptoms.forEach((k, v) => _sel[k] = (v as num).toInt());
-          _mood = data['mood'] ?? '';
+          const moodMap = {
+            'Great': 'Great 😊', 'Good': 'Good 🙂',
+            'Okay': 'Okay 😐', 'Low': 'Low 😔', 'Bad': 'Bad 😟',
+          };
+          _mood = moodMap[data['mood']] ?? data['mood'] ?? '';
           _notes.text = data['notes'] ?? '';
         });
       }

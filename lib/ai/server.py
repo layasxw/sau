@@ -36,7 +36,7 @@ def extract_symptoms(request: SymptomRequest):
             {"role": "system", "content": """You are a medical data extraction assistant.
 Extract symptoms from user text and return ONLY a valid JSON object:
 {
-  "mood": "one of: Good, Okay, Low, Bad",
+  "mood": "one of: Great Good, Okay, Low, Bad",
   "notes": "general comments or empty string",
   "symptoms": {
     "Symptom Name in English": severity as integer 1-5
