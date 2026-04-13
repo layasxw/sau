@@ -42,6 +42,7 @@ def analyze_recovery(request: AdvisorRequest):
 - Имя: {profile.get('fullName', 'неизвестно')}
 - Возраст: {profile.get('age', 'неизвестно')}
 - Диагноз: {medical.get('diagnosis', 'неизвестно')}
+- Дата операции: {medical.get('surgeryDate', 'не указана')}
 - История болезни: {medical.get('medicalHistory', 'нет данных')}
 
 Последние симптомы: {symptoms}

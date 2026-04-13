@@ -16,6 +16,7 @@ class OnboardingData {
   // ── Step 3: Diagnosis ──────────────────────────────
   String diagnosis = '';
   String medicalHistory = '';
+  DateTime? surgeryDate;
 
   // ── Step 4: Restrictions ───────────────────────────
   List<String> allergies = [];

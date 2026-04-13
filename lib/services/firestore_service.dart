@@ -26,6 +26,9 @@ class FirestoreService {
       .set({
       'diagnosis' : data.diagnosis,
       'medicalHistory' : data.medicalHistory,
+      'surgeryDate': data.surgeryDate != null
+          ? Timestamp.fromDate(data.surgeryDate!)
+          : null,
     });
   }
 
