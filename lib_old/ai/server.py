@@ -36,7 +36,7 @@ def extract_symptoms(request: SymptomRequest):
             {"role": "system", "content": """You are a medical data extraction assistant.
 Extract symptoms from user text and return ONLY a valid JSON object:
 {
-  "mood": "one of: Great, Good, Okay, Low, Bad",
+  "mood": "one of: Great Good, Okay, Low, Bad",
   "notes": "general comments or empty string",
   "symptoms": {
     "Symptom Name in English": severity as integer 1-5
@@ -180,98 +180,39 @@ def analyze_meal(request: MealAnalysisRequest):
     clean = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(clean)
 
-from datetime import datetime, timedelta
-from typing import Optional
-from pydantic import BaseModel
-
-class DailyLog(BaseModel):
-    date: str
-    symptoms: Optional[dict] = None   # {"Nausea": 2, "Pain": 3}
-    mood: Optional[str] = None
+class ReminderSuggestionRequest(BaseModel):
+    symptoms: Optional[list] = None
     meals: Optional[list] = None
-    total_protein: Optional[float] = None
+    mood: Optional[str] = None
 
-class RecoveryScoreRequest(BaseModel):
-    today: DailyLog
-    history: Optional[list[DailyLog]] = []  # последние 7 дней
+@app.post("/suggest-reminders")
+def suggest_reminders(request: ReminderSuggestionRequest):
+    prompt = f"""
+Симптомы сегодня: {request.symptoms or 'нет данных'}
+Приемы пищи: {request.meals or 'нет данных'}
+Настроение: {request.mood or 'нет данных'}
+"""
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": """Ты — помощник по реабилитации после рака желудка.
+На основе симптомов и питания предложи 2-3 мягких напоминания для пациента.
 
-RED_FLAG_SYMPTOMS = {"blood", "vomiting", "кровь", "рвота", "bleeding"}
+Правила:
+- Никаких точных цифр (не пиши "выпей 8 стаканов", пиши "пей воду регулярно")
+- Только безопасные общие рекомендации
+- Короткие и понятные
 
-def compute_single_score(log: DailyLog) -> float:
-    score = 55.0
-
-    # Mood
-    mood_map = {"Great": 20, "Good": 15, "Okay": 10, "Low": 5, "Bad": 0}
-    score += mood_map.get(log.mood or "Okay", 10)
-
-    # Nutrition
-    if log.meals:
-        meal_bonus = min(len(log.meals) * 5, 25)
-        score += meal_bonus
-        if (log.total_protein or 0) > 50:
-            score += 5
-
-    # Symptoms
-    if log.symptoms:
-        symptom_penalty = sum(log.symptoms.values()) * 3
-        score -= min(symptom_penalty, 40)
-
-        # Red flag check
-        for name in log.symptoms:
-            if any(flag in name.lower() for flag in RED_FLAG_SYMPTOMS):
-                score = min(score, 30)
-                break
-
-    return max(0.0, min(100.0, score))
-
-
-def compute_trend(scores: list[float]) -> float:
-    """Линейная регрессия slope нормализованная в %"""
-    n = len(scores)
-    if n < 2:
-        return 0.0
-    x_mean = (n - 1) / 2
-    y_mean = sum(scores) / n
-    num = sum((i - x_mean) * (s - y_mean) for i, s in enumerate(scores))
-    den = sum((i - x_mean) ** 2 for i in range(n))
-    return round(num / den, 1) if den else 0.0
-
-
-def compute_consistency(history: list[DailyLog]) -> float:
-    """Бонус за количество залогированных дней из 7"""
-    days_with_data = sum(
-        1 for log in history
-        if log.mood or log.symptoms or log.meals
+Верни ТОЛЬКО валидный JSON без markdown:
+{
+  "reminders": [
+    {"title": "Короткое название", "description": "Краткое описание"},
+    {"title": "Короткое название", "description": "Краткое описание"}
+  ]
+}"""},
+            {"role": "user", "content": prompt}
+        ]
     )
-    return round((days_with_data / 7) * 10, 1)
-
-
-@app.post("/recovery-score")
-def recovery_score(request: RecoveryScoreRequest):
-    today_score = compute_single_score(request.today)
-
-    history_scores = [compute_single_score(log) for log in request.history]
-    all_scores = history_scores + [today_score]
-
-    trend = compute_trend(all_scores)
-    consistency_bonus = compute_consistency(request.history)
-
-    final_score = max(0, min(100, today_score + consistency_bonus))
-
-    prev_score = history_scores[-1] if history_scores else None
-    delta = round(final_score - prev_score, 1) if prev_score is not None else None
-
-    label = (
-        "Excellent" if final_score >= 80 else
-        "Good"      if final_score >= 60 else
-        "Fair"      if final_score >= 40 else
-        "Poor"
-    )
-
-    return {
-        "score": round(final_score),
-        "delta": delta,
-        "trend": trend,           # slope за 7 дней (+ растёт, - падает)
-        "consistency": consistency_bonus,
-        "label": label,
-    }
+    raw = response.choices[0].message.content
+    clean = raw.replace("```json", "").replace("```", "").strip()
+    return json.loads(clean)

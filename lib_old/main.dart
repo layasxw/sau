@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:rehab_assist/screens/doctor_screen.dart';
-import 'package:rehab_assist/screens/onboarding/onboarding_screen.dart';
-import 'package:rehab_assist/services/firestore_service.dart';
 import './firebase_options.dart';
 import './theme/app_theme.dart';
 import './screens/login_screen.dart';
 import './screens/home_screen.dart';
+import './screens/onboarding/onboarding_data.dart';
 import './services/auth_service.dart';
 
 void main() async {
@@ -17,14 +15,6 @@ void main() async {
   );
 
   runApp(const RehabAssistApp());
-}
-
-Future<Widget> _getStartScreen() async {
-  if (AuthService.currentUser == null) return const LoginScreen();
-  final role = await FirestoreService.getRole();
-  if (role == 'doctor') return const DoctorScreen();
-  final onboardingDone = await FirestoreService.isOnboardingComplete(); // см. ниже
-  return onboardingDone ? const HomeScreen() : const OnboardingScreen();
 }
 
 class RehabAssistApp extends StatelessWidget {
@@ -42,13 +32,9 @@ class RehabAssistApp extends StatelessWidget {
       //
       // AuthService.currentUser is non-null when Firebase has a saved session
       // (the user signed in previously and never signed out).
-      home: FutureBuilder<Widget>(
-        future: _getStartScreen(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          return snapshot.data!;
-        },
-      ),
+      home: AuthService.currentUser != null
+          ? HomeScreen()
+          : const LoginScreen(),
     );
   }
 }

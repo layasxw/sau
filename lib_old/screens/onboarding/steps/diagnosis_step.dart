@@ -40,6 +40,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
   @override
   void initState() {
     super.initState();
+    // If saved diagnosis is not in the list, it was a custom "Other" value
     final saved = widget.data.diagnosis;
     if (saved.isEmpty || _diagnosisOptions.contains(saved)) {
       _selectedDiagnosis = saved.isEmpty ? null : saved;
@@ -139,6 +140,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
             onChanged: (value) => setState(() => _selectedDiagnosis = value),
           ),
 
+          // Show text input when "Other" is selected
           if (_selectedDiagnosis == 'Other') ...[
             const SizedBox(height: 16),
             const FieldLabel('Please describe your diagnosis'),
@@ -152,6 +154,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
 
           const SizedBox(height: 20),
 
+          // Surgery date picker
           const FieldLabel('Surgery Date'),
           const SizedBox(height: 4),
           const Text(
@@ -176,7 +179,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
                   Text(
                     _surgeryDate == null
                         ? 'Select date'
-                        : '${_surgeryDate!.day.toString().padLeft(2, '0')}.${_surgeryDate!.month.toString().padLeft(2, '0')}.${_surgeryDate!.year}',
+                        : '${_surgeryDate!.day.toString().padLeft(2,'0')}.${_surgeryDate!.month.toString().padLeft(2,'0')}.${_surgeryDate!.year}',
                     style: TextStyle(
                       color: _surgeryDate == null
                           ? AppColors.textSecondary

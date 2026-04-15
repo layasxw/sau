@@ -32,19 +32,31 @@ class _LoginScreenState extends State<LoginScreen> {
     final email    = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      _showError('Please enter your email and password.');
+    // Basic local validation before hitting Firebase
+    if (email.isEmpty || !email.contains('@')) {
+      _showError('Please enter a valid email address.');
+      return;
+    }
+    if (password.isEmpty) {
+      _showError('Please enter your password.');
       return;
     }
 
+    // Show loading spinner on the button
     setState(() => _isLoading = true);
+
+    // Call Firebase via AuthService
     final error = await AuthService.signIn(email, password);
+
+    // Hide spinner
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (error != null) {
+      // Firebase returned an error — show it to the user
       _showError(error);
     } else {
+      // Success — go to HomeScreen, remove login from the stack
       final role = await FirestoreService.getRole();
       if (!mounted) return;
       if (role == 'doctor') {
@@ -53,11 +65,12 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen()),
         );
       }
     }
   }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

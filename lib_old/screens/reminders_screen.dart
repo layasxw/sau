@@ -288,14 +288,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ),
                 ]),
               )),
+              const SizedBox(height: 8),
+              const Text(
+                'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+              ),
             ]),
           ),
         ],
-          const SizedBox(height: 8),
-          const Text(
-            'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
-            style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
-          ),
         const SizedBox(height: 16),
         // Filter chips
         SingleChildScrollView(

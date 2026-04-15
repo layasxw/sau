@@ -197,18 +197,6 @@ class FirestoreService {
       return data;
     }).toList();
   }
-
-  static Future<void> completeOnboarding() async {
-    await _db.collection('users').doc(_uid).set(
-      {'onboardingComplete': true},
-      SetOptions(merge: true),
-    );
-  }
-
-  static Future<bool> isOnboardingComplete() async {
-    final doc = await _db.collection('users').doc(_uid).get();
-    return doc.data()?['onboardingComplete'] == true;
-  }
 }
 
 

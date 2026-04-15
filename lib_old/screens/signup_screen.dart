@@ -17,7 +17,6 @@ class SignupScreen extends StatefulWidget {
 // мед история обяз
 // дата операции 
 class _SignupScreenState extends State<SignupScreen> {
-  final _nameController            = TextEditingController();
   final _emailController           = TextEditingController();
   final _passwordController        = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -29,7 +28,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -37,16 +35,11 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _validateAndSignUp() async {
-    final name            = _nameController.text.trim();
     final email           = _emailController.text.trim();
     final password        = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
     // Local validation first — no need to hit Firebase for obvious mistakes
-    if (name.isEmpty) {
-      _showError('Please enter your full name.');
-      return;
-    }
     if (email.isEmpty || !email.contains('@')) {
       _showError('Please enter a valid email address.');
       return;
@@ -150,16 +143,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   const Text('Create your account to get started',
                       style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                   const SizedBox(height: 28),
-
-                  // Full Name
-                  _label('Full Name'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _nameController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: _dec('Enter your full name'),
-                  ),
-                  const SizedBox(height: 20),
 
                   // Email
                   _label('Email'),

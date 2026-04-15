@@ -37,7 +37,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await FirestoreService.saveUserData(_data);
       await FirestoreService.saveMedicalProfile(_data);
       await FirestoreService.saveRestrictions(_data);
-      await FirestoreService.completeOnboarding();
       // Last step done — go to Dashboard
       Navigator.pushReplacement(
         context,

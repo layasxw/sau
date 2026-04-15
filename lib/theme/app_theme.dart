@@ -1,97 +1,141 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF3AAFA9); // Teal
-  static const Color primaryLight = Color(0xFFE8F7F6); // Light teal bg
-  static const Color accent = Color(0xFFE05252); // Red (close/important)
-  static const Color background = Color(0xFFF0F4F5); // Light grey bg
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF1A1A2E);
-  static const Color textSecondary = Color(0xFF7A8A99);
-  static const Color divider = Color(0xFFE5EAED);
+  // Figma Source of Truth: Clinical Sanctuary
+  static const Color primary = Color(0xFF004CCA); // Brand Blue
+  static const Color primaryLight = Color(0xFFE8F0FF);
+  static const Color accent = Color(0xFFFF3B30); // iOS Red
+  static const Color background = Color(0xFFFAF8FF); // Surface Level 0
+  static const Color surface = Colors.white; // Surface Level 1
+  static const Color surfaceSecondary = Color(0xFFEDEDF8); // Surface Level 2
+  
+  static const Color textPrimary = Color(0xFF0F172A); // Slate 900
+  static const Color textSecondary = Color(0xFF64748B); // Slate 500
+  static const Color divider = Color(0xFFE2E8F0);
 
-  // Stat card icon bg colors
-  static const Color calorieBg = Color(0xFFFFF3E0);
-  static const Color proteinBg = Color(0xFFFFEBEB);
-  static const Color carbsBg = Color(0xFFE8F5F0);
-  static const Color fatBg = Color(0xFFFFEBEB);
+  // Stat card icon colors (Sau Aesthetic)
+  static const Color calorieBg = Color(0xFFFFF7ED);
+  static const Color proteinBg = Color(0xFFFEF2F2);
+  static const Color carbsBg = Color(0xFFF0FDF4);
+  static const Color fatBg = Color(0xFFEFF6FF);
+}
+
+class AppGradients {
+  static const LinearGradient primary = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF004CCA),
+      Color(0xFF007AFF),
+    ],
+  );
+
+  static const LinearGradient surface = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Colors.white,
+      Color(0xFFF8FAFC),
+    ],
+  );
 }
 
 class AppTheme {
-  static ThemeData get theme => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
-          surface: AppColors.surface,
+  static ThemeData get theme {
+    final baseTextTheme = GoogleFonts.interTextTheme();
+    
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.primary,
+        primary: AppColors.primary,
+        surface: AppColors.surface,
+        background: AppColors.background,
+      ),
+      scaffoldBackgroundColor: AppColors.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.surface.withOpacity(0.8),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: GoogleFonts.inter(
+          color: AppColors.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
         ),
-        scaffoldBackgroundColor: AppColors.background,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.surface,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          titleTextStyle: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-          iconTheme: IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      ),
+      textTheme: baseTextTheme.copyWith(
+        // Large Title (e.g. Dashboard titles)
+        displayLarge: GoogleFonts.inter(
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -1.0,
+          color: AppColors.textPrimary,
         ),
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-          headlineMedium: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-          titleLarge: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-          bodyLarge: TextStyle(
-            fontSize: 15,
-            color: AppColors.textPrimary,
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
+        // Title 2 (e.g. Section headers)
+        headlineMedium: GoogleFonts.inter(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
+          color: AppColors.textPrimary,
         ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+        // Headline (e.g. Card titles)
+        titleLarge: GoogleFonts.inter(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.4,
+          color: AppColors.textPrimary,
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.background,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        // Body (e.g. Standard text)
+        bodyLarge: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          letterSpacing: -0.2,
+          color: AppColors.textPrimary,
         ),
-        cardTheme: CardThemeData(
-          color: AppColors.surface,
-          elevation: 0,
+        // Subhead (e.g. Captions)
+        bodyMedium: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.0,
+          color: AppColors.textSecondary,
+        ),
+        // Label (Upper case metadata)
+        labelSmall: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+          color: AppColors.textSecondary,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          elevation: 0,
+          textStyle: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      );
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.surface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: AppColors.divider, width: 0.5),
+        ),
+      ),
+    );
+  }
 }
+

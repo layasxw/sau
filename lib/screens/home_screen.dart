@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'dashboard_screen.dart';
 import 'reminders_screen.dart';
@@ -19,18 +21,18 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   static const _tabs = [
-    _Tab(Icons.dashboard_outlined, Icons.dashboard, 'Home'),
-    _Tab(Icons.notifications_outlined, Icons.notifications, 'Reminders'),
-    _Tab(Icons.restaurant_menu_outlined, Icons.restaurant_menu, 'Food'),
-    _Tab(Icons.monitor_heart_outlined, Icons.monitor_heart, 'Symptoms'),
-    _Tab(Icons.person_outline, Icons.person, 'Profile'),
+    _Tab(CupertinoIcons.square_grid_2x2, CupertinoIcons.square_grid_2x2_fill, 'Home'),
+    _Tab(CupertinoIcons.bell, CupertinoIcons.bell_fill, 'Reminders'),
+    _Tab(CupertinoIcons.flame, CupertinoIcons.flame_fill, 'Food'),
+    _Tab(CupertinoIcons.waveform_path_ecg, CupertinoIcons.waveform_path_ecg, 'Symptoms'),
+    _Tab(CupertinoIcons.person, CupertinoIcons.person_fill, 'Profile'),
   ];
 
   static const _titles = [
     'Dashboard',
     'Reminders',
     'Food Diary',
-    'Symptom Tracking',
+    'Symptoms',
     'Profile'
   ];
 
@@ -43,47 +45,78 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.surface.withOpacity(0.8),
+        elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 20,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         title: Row(children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.favorite, color: Colors.white, size: 18),
+              gradient: AppGradients.primary,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(CupertinoIcons.heart_fill, color: Colors.white, size: 16),
           ),
-          const SizedBox(width: 10),
-          Text(_titles[_selectedIndex],
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
+          const SizedBox(width: 12),
+          Text(
+            _titles[_selectedIndex],
+            style: Theme.of(context).appBarTheme.titleTextStyle,
+          ),
         ]),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: AppColors.divider, height: 1),
-        ),
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: Stack(
         children: [
-          DashboardScreen(onNavigate: navigateTo),
-          const RemindersScreen(),
-          FoodDiaryScreen(),
-          const SymptomsScreen(),
-          const ProfileScreen(),
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _buildPage(_selectedIndex),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _BottomNav(
+              selectedIndex: _selectedIndex,
+              tabs: _tabs,
+              onTap: navigateTo,
+            ),
+          ),
         ],
       ),
-      bottomNavigationBar: _BottomNav(
-        selectedIndex: _selectedIndex,
-        tabs: _tabs,
-        onTap: navigateTo,
-      ),
     );
+  }
+
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return DashboardScreen(key: const ValueKey(0), onNavigate: navigateTo);
+      case 1:
+        return const RemindersScreen(key: ValueKey(1));
+      case 2:
+        return FoodDiaryScreen(key: const ValueKey(2));
+      case 3:
+        return const SymptomsScreen(key: ValueKey(3));
+      case 4:
+        return const ProfileScreen(key: ValueKey(4));
+      default:
+        return const SizedBox();
+    }
   }
 }
 
@@ -98,19 +131,15 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(top: BorderSide(color: AppColors.divider)),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -4))
-        ],
+        color: AppColors.surface.withOpacity(0.95),
+        border: const Border(
+          top: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 62,
+          height: 64, 
           child: Row(
             children: List.generate(tabs.length, (i) {
               final sel = i == selectedIndex;
@@ -121,31 +150,21 @@ class _BottomNav extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: sel ? 46 : 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: sel
-                              ? AppColors.primary.withOpacity(0.13)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Icon(sel ? tabs[i].activeIcon : tabs[i].icon,
-                            size: 21,
-                            color: sel
-                                ? AppColors.primary
-                                : AppColors.textSecondary),
+                      Icon(
+                        sel ? tabs[i].activeIcon : tabs[i].icon,
+                        size: 26,
+                        color: sel ? AppColors.primary : AppColors.textSecondary,
                       ),
-                      const SizedBox(height: 3),
-                      Text(tabs[i].label,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                            color: sel
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
-                          )),
+                      const SizedBox(height: 4),
+                      Text(
+                        tabs[i].label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                          color: sel ? AppColors.primary : AppColors.textSecondary,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -163,3 +182,4 @@ class _Tab {
   final String label;
   const _Tab(this.icon, this.activeIcon, this.label);
 }
+
