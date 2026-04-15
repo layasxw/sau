@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
-from typing import Optional
+from typing import Optional, List, Dict
 from dotenv import load_dotenv
 import json
 import os
@@ -23,6 +23,16 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
+# ── SAFE JSON PARSER ──────────────────────────────────────────────────────────
+
+def safe_json_parse(raw: str):
+    clean = raw.replace("```json", "").replace("```", "").strip()
+    try:
+        return json.loads(clean)
+    except:
+        return {"error": "Invalid AI response", "raw": clean}
+
+
 # ── Symptom Extraction ────────────────────────────────────────────────────────
 
 class SymptomRequest(BaseModel):
@@ -34,22 +44,16 @@ def extract_symptoms(request: SymptomRequest):
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": """You are a medical data extraction assistant.
-Extract symptoms from user text and return ONLY a valid JSON object:
+Extract symptoms and return ONLY JSON:
 {
-  "mood": "one of: Great Good, Okay, Low, Bad",
-  "notes": "general comments or empty string",
-  "symptoms": {
-    "Symptom Name in English": severity as integer 1-5
-  }
-}
-Rules:
-- symptom names in English, capitalized
-- severity 1-5
-- return ONLY JSON, nothing else"""},
+  "mood": "Great, Good, Okay, Low, Bad",
+  "notes": "text",
+  "symptoms": {"Symptom": 1-5}
+}"""},
             {"role": "user", "content": request.text}
         ]
     )
-    return json.loads(response.choices[0].message.content)
+    return safe_json_parse(response.choices[0].message.content)
 
 
 # ── AI Recovery Advisor ───────────────────────────────────────────────────────
@@ -62,88 +66,67 @@ class AdvisorRequest(BaseModel):
 
 @app.post("/analyze")
 def analyze_recovery(request: AdvisorRequest):
-    profile = request.profile or {}
-    medical = request.medical or {}
-    symptoms = request.recent_symptoms or []
-    meals = request.recent_meals or []
-
     prompt = f"""
-Данные пациента:
-- Имя: {profile.get('fullName', 'неизвестно')}
-- Возраст: {profile.get('age', 'неизвестно')}
-- Диагноз: {medical.get('diagnosis', 'неизвестно')}
-- Дата операции: {medical.get('surgeryDate', 'не указана')}
-- История болезни: {medical.get('medicalHistory', 'нет данных')}
-
-Последние симптомы: {symptoms}
-Последние приемы пищи: {meals}
-
-Проанализируй состояние пациента и дай рекомендации.
+Пациент:
+{request.profile}
+Медицина:
+{request.medical}
+Симптомы: {request.recent_symptoms}
+Питание: {request.recent_meals}
 """
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": """Ты — экспертная система по реабилитации после рака желудка.
-Основывайся на протоколах ESMO и ERAS.
+            {"role": "system", "content": """Ты эксперт по реабилитации.
 
-RED FLAGS — если есть любой из этих симптомов, укажи risk как high:
-- кровь в стуле или рвоте
-- острая боль в животе
-- температура выше 38.5°C
-- непрекращающаяся рвота
-- резкая потеря веса
-
-Верни ТОЛЬКО валидный JSON без markdown:
+Верни JSON:
 {
-  "risk": "low" или "medium" или "high",
-  "status": "одно предложение об общем состоянии",
-  "concerns": "ключевые проблемы одним предложением",
-  "nutrition": "рекомендация по питанию одним предложением", 
-  "activity": "рекомендация по активности одним предложением",
-  "doctor": "когда обратиться к врачу одним предложением"
+  "risk": "low|medium|high",
+  "status": "...",
+  "concerns": "...",
+  "nutrition": "...",
+  "activity": "...",
+  "doctor": "..."
 }"""},
             {"role": "user", "content": prompt}
         ]
-    )  
+    )
+    return safe_json_parse(response.choices[0].message.content)
 
-    raw = response.choices[0].message.content
-    clean = raw.replace("```json", "").replace("```", "").strip()
-    return json.loads(clean)
 
+# ── Symptom Analysis ──────────────────────────────────────────────────────────
 
 class SymptomAnalysisRequest(BaseModel):
-    symptoms: dict
+    symptoms: Dict[str, int]
     mood: str
     notes: Optional[str] = None
 
 @app.post("/analyze-symptoms")
 def analyze_symptoms(request: SymptomAnalysisRequest):
     prompt = f"""
-Симптомы пациента сегодня: {request.symptoms}
+Симптомы: {request.symptoms}
 Настроение: {request.mood}
 Заметки: {request.notes or 'нет'}
 """
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": """Ты — экспертная система по реабилитации после рака желудка.
-
-RED FLAGS — если есть кровь, острая боль, температура выше 38.5, рвота — укажи risk как high.
-
-Верни ТОЛЬКО валидный JSON без markdown:
+            {"role": "system", "content": """Верни JSON:
 {
-  "risk": "low" или "medium" или "high",
-  "summary": "одно предложение об общем состоянии",
-  "advice": "конкретная рекомендация что делать сегодня",
-  "reminder": "одно напоминание которое стоит добавить например Выпить 8 стаканов воды"
+  "risk": "low|medium|high",
+  "summary": "...",
+  "advice": "...",
+  "reminder": "..."
 }"""},
             {"role": "user", "content": prompt}
         ]
     )
-    raw = response.choices[0].message.content
-    clean = raw.replace("```json", "").replace("```", "").strip()
-    return json.loads(clean)
+    return safe_json_parse(response.choices[0].message.content)
+
+
+# ── Meal Analysis ─────────────────────────────────────────────────────────────
 
 class MealAnalysisRequest(BaseModel):
     meals: list
@@ -155,94 +138,88 @@ class MealAnalysisRequest(BaseModel):
 @app.post("/analyze-meal")
 def analyze_meal(request: MealAnalysisRequest):
     prompt = f"""
-Приемы пищи сегодня: {request.meals}
-Итого калорий: {request.total_calories}
-Белки: {request.total_protein}г
-Углеводы: {request.total_carbs}г
-Жиры: {request.total_fat}г
+Meals: {request.meals}
+Calories: {request.total_calories}
+Protein: {request.total_protein}
+Carbs: {request.total_carbs}
+Fat: {request.total_fat}
 """
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": """Ты — диетолог для пациентов после рака желудка.
-Анализируй питание и давай конкретные рекомендации.
-
-Верни ТОЛЬКО валидный JSON без markdown:
+            {"role": "system", "content": """Верни JSON:
 {
-  "rating": "good" или "low" или "high",
-  "summary": "одно предложение об общем питании сегодня",
-  "advice": "конкретная рекомендация что добавить или убрать"
+  "rating": "low|good|high",
+  "summary": "...",
+  "advice": "..."
 }"""},
             {"role": "user", "content": prompt}
         ]
     )
-    raw = response.choices[0].message.content
-    clean = raw.replace("```json", "").replace("```", "").strip()
-    return json.loads(clean)
+    return safe_json_parse(response.choices[0].message.content)
+
+
+# ── Suggest Reminders ─────────────────────────────────────────────────────────
 
 class ReminderSuggestionRequest(BaseModel):
-    symptoms: Optional[list] = None
+    symptoms: Optional[Dict[str, int]] = None
     meals: Optional[list] = None
     mood: Optional[str] = None
 
 @app.post("/suggest-reminders")
 def suggest_reminders(request: ReminderSuggestionRequest):
     prompt = f"""
-Симптомы сегодня: {request.symptoms or 'нет данных'}
-Приемы пищи: {request.meals or 'нет данных'}
-Настроение: {request.mood or 'нет данных'}
+Симптомы: {request.symptoms or 'нет'}
+Питание: {request.meals or 'нет'}
+Настроение: {request.mood or 'нет'}
 """
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": """Ты — помощник по реабилитации после рака желудка.
-На основе симптомов и питания предложи 2-3 мягких напоминания для пациента.
+            {"role": "system", "content": """Дай 2-3 напоминания.
 
-Правила:
-- Никаких точных цифр (не пиши "выпей 8 стаканов", пиши "пей воду регулярно")
-- Только безопасные общие рекомендации
-- Короткие и понятные
-
-Верни ТОЛЬКО валидный JSON без markdown:
+Верни JSON:
 {
   "reminders": [
-    {"title": "Короткое название", "description": "Краткое описание"},
-    {"title": "Короткое название", "description": "Краткое описание"}
+    {"title": "...", "description": "..."}
   ]
 }"""},
             {"role": "user", "content": prompt}
         ]
     )
-    raw = response.choices[0].message.content
-    clean = raw.replace("```json", "").replace("```", "").strip()
-    return json.loads(clean)
+    return safe_json_parse(response.choices[0].message.content)
+
+
+# ── Recovery Score (NEW) ──────────────────────────────────────────────────────
+
+class DailyLog(BaseModel):
+    date: str
+    symptoms: Optional[Dict[str, int]] = None
+    mood: Optional[str] = None
+    meals: Optional[list] = None
+    total_protein: Optional[float] = None
 
 class RecoveryScoreRequest(BaseModel):
     today: DailyLog
-    history: Optional[list[DailyLog]] = []  # последние 7 дней
+    history: Optional[List[DailyLog]] = []
 
 RED_FLAG_SYMPTOMS = {"blood", "vomiting", "кровь", "рвота", "bleeding"}
 
 def compute_single_score(log: DailyLog) -> float:
     score = 55.0
 
-    # Mood
     mood_map = {"Great": 20, "Good": 15, "Okay": 10, "Low": 5, "Bad": 0}
     score += mood_map.get(log.mood or "Okay", 10)
 
-    # Nutrition
     if log.meals:
-        meal_bonus = min(len(log.meals) * 5, 25)
-        score += meal_bonus
+        score += min(len(log.meals) * 5, 25)
         if (log.total_protein or 0) > 50:
             score += 5
 
-    # Symptoms
     if log.symptoms:
-        symptom_penalty = sum(log.symptoms.values()) * 3
-        score -= min(symptom_penalty, 40)
-
-        # Red flag check
+        score -= min(sum(log.symptoms.values()) * 3, 40)
         for name in log.symptoms:
             if any(flag in name.lower() for flag in RED_FLAG_SYMPTOMS):
                 score = min(score, 30)
@@ -251,8 +228,7 @@ def compute_single_score(log: DailyLog) -> float:
     return max(0.0, min(100.0, score))
 
 
-def compute_trend(scores: list[float]) -> float:
-    """Линейная регрессия slope нормализованная в %"""
+def compute_trend(scores: List[float]) -> float:
     n = len(scores)
     if n < 2:
         return 0.0
@@ -263,41 +239,35 @@ def compute_trend(scores: list[float]) -> float:
     return round(num / den, 1) if den else 0.0
 
 
-def compute_consistency(history: list[DailyLog]) -> float:
-    """Бонус за количество залогированных дней из 7"""
-    days_with_data = sum(
-        1 for log in history
-        if log.mood or log.symptoms or log.meals
-    )
-    return round((days_with_data / 7) * 10, 1)
+def compute_consistency(history: List[DailyLog]) -> float:
+    days = sum(1 for log in history if log.mood or log.symptoms or log.meals)
+    return round((days / 7) * 10, 1)
 
 
 @app.post("/recovery-score")
 def recovery_score(request: RecoveryScoreRequest):
     today_score = compute_single_score(request.today)
-
     history_scores = [compute_single_score(log) for log in request.history]
-    all_scores = history_scores + [today_score]
 
-    trend = compute_trend(all_scores)
-    consistency_bonus = compute_consistency(request.history)
+    trend = compute_trend(history_scores + [today_score])
+    consistency = compute_consistency(request.history)
 
-    final_score = max(0, min(100, today_score + consistency_bonus))
+    final_score = max(0, min(100, today_score + consistency))
 
-    prev_score = history_scores[-1] if history_scores else None
-    delta = round(final_score - prev_score, 1) if prev_score is not None else None
+    prev = history_scores[-1] if history_scores else None
+    delta = round(final_score - prev, 1) if prev is not None else None
 
     label = (
         "Excellent" if final_score >= 80 else
-        "Good"      if final_score >= 60 else
-        "Fair"      if final_score >= 40 else
+        "Good" if final_score >= 60 else
+        "Fair" if final_score >= 40 else
         "Poor"
     )
 
     return {
         "score": round(final_score),
         "delta": delta,
-        "trend": trend,           # slope за 7 дней (+ растёт, - падает)
-        "consistency": consistency_bonus,
+        "trend": trend,
+        "consistency": consistency,
         "label": label,
     }
