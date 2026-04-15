@@ -169,7 +169,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
           Uri.parse('https://sau-production.up.railway.app/suggest-reminders'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'symptoms': todaySymptoms.map((s) => s['symptoms']).toList(),
+            'symptoms': {
+              for (var s in todaySymptoms)
+                ...Map<String, dynamic>.from(s['symptoms'] ?? {})
+            },
             'meals': todayMeals.map((m) => m['name']).toList(),
             'mood': todaySymptoms.isNotEmpty ? todaySymptoms.first['mood'] : null,
           }),
