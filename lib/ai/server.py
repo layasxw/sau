@@ -36,7 +36,7 @@ def extract_symptoms(request: SymptomRequest):
             {"role": "system", "content": """You are a medical data extraction assistant.
 Extract symptoms from user text and return ONLY a valid JSON object:
 {
-  "mood": "one of: Great, Good, Okay, Low, Bad",
+  "mood": "one of: Great Good, Okay, Low, Bad",
   "notes": "general comments or empty string",
   "symptoms": {
     "Symptom Name in English": severity as integer 1-5
@@ -180,16 +180,42 @@ def analyze_meal(request: MealAnalysisRequest):
     clean = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(clean)
 
-from datetime import datetime, timedelta
-from typing import Optional
-from pydantic import BaseModel
-
-class DailyLog(BaseModel):
-    date: str
-    symptoms: Optional[dict] = None   # {"Nausea": 2, "Pain": 3}
-    mood: Optional[str] = None
+class ReminderSuggestionRequest(BaseModel):
+    symptoms: Optional[list] = None
     meals: Optional[list] = None
-    total_protein: Optional[float] = None
+    mood: Optional[str] = None
+
+@app.post("/suggest-reminders")
+def suggest_reminders(request: ReminderSuggestionRequest):
+    prompt = f"""
+Симптомы сегодня: {request.symptoms or 'нет данных'}
+Приемы пищи: {request.meals or 'нет данных'}
+Настроение: {request.mood or 'нет данных'}
+"""
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": """Ты — помощник по реабилитации после рака желудка.
+На основе симптомов и питания предложи 2-3 мягких напоминания для пациента.
+
+Правила:
+- Никаких точных цифр (не пиши "выпей 8 стаканов", пиши "пей воду регулярно")
+- Только безопасные общие рекомендации
+- Короткие и понятные
+
+Верни ТОЛЬКО валидный JSON без markdown:
+{
+  "reminders": [
+    {"title": "Короткое название", "description": "Краткое описание"},
+    {"title": "Короткое название", "description": "Краткое описание"}
+  ]
+}"""},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    raw = response.choices[0].message.content
+    clean = raw.replace("```json", "").replace("```", "").strip()
+    return json.loads(clean)
 
 class RecoveryScoreRequest(BaseModel):
     today: DailyLog
