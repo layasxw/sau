@@ -195,8 +195,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final reminders = List<Map<String, dynamic>>.from(data['reminders']);
-          // Save to cache so we don't call AI again today
+          debugPrint('=== suggest-reminders response: $data ==='); // временно
+          final raw = data['reminders'];
+          if (raw == null) return; // ← добавь это
+          final reminders = List<Map<String, dynamic>>.from(raw);
           await FirestoreService.saveSuggestedReminders(reminders);
           setState(() => _suggestedReminders = reminders);
         }
