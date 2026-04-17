@@ -7,6 +7,8 @@ import '../theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:universal_html/html.dart' as html;
 
 class _Log {
   final String id;
@@ -433,6 +435,28 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     }
   }
 Future<void> _listen() async {
+  if (kIsWeb) {
+    final recognition = html.SpeechRecognition();
+    recognition.lang = 'ru-RU';
+    recognition.interimResults = false;
+    recognition.onResult.listen((event) {
+      final results = event.results;
+      if (results != null && results.isNotEmpty) {
+        final result = results.last;
+        final transcript = result.item(0)?.transcript;
+        setState(() => _aiText.text = transcript ?? '');
+      }
+    });
+    recognition.onError.listen((event) {
+      debugPrint('Speech error: $event');
+      setState(() => _isListening = false);
+    });
+    setState(() => _isListening = true);
+    recognition.start();
+    return;
+  }
+
+  
   if (!_isListening) {
     final available = await _speech.initialize(
       onError: (error) {
@@ -826,6 +850,8 @@ Future<void> _listen() async {
     Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary, letterSpacing: -0.2)),
   ]);
 }
+
+
 
 class _HBPainter extends CustomPainter {
   @override

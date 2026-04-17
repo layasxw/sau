@@ -43,5 +43,15 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+  function startSpeechRecognition(callback) {
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'ru-RU';
+    recognition.interimResults = false;
+    recognition.onresult = (e) => callback(e.results[0][0].transcript);
+    recognition.onerror = (e) => console.log('Speech error:', e.error);
+    recognition.start();
+  }
+  </script>
 </body>
 </html>

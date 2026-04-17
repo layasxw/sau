@@ -184,7 +184,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       if (response.statusCode == 200) {
-        setState(() => _aiData = jsonDecode(response.body));
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          debugPrint('AI returned error: ${data['raw']}');
+          return; // не обновляем стейт
+        }
+        setState(() => _aiData = data);
       }
     } catch (e) {
       debugPrint('AI error: $e');
@@ -349,6 +354,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final riskColor = risk == 'high'
         ? AppColors.accent
         : risk == 'medium' ? Colors.orange : Colors.green;
+        
 
     return Container(
       decoration: BoxDecoration(
@@ -384,9 +390,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (_aiData != null) ...[
                   const SizedBox(height: 20),
                   _AIInsightRow(icon: CupertinoIcons.graph_circle,
-                      label: 'Optimization', text: _aiData!['status']),
+                      label: 'Optimization', text: _aiData!['status'] ?? 'Analyzing...'),
                   _AIInsightRow(icon: CupertinoIcons.exclamationmark_triangle,
-                      label: 'Concerns', text: _aiData!['concerns']),
+                      label: 'Concerns', text: _aiData!['concerns'] ?? 'No concerns found'),
                   const SizedBox(height: 8),
                   const Text(
                     'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
