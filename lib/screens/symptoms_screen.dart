@@ -386,6 +386,15 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   bool _isListening = false;
   Map<String, dynamic>? _aiResult;
   final Set<String> _expandedCategories = {};
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _notes.dispose();
+    _aiText.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _analyzeWithAI() async {
     if (_aiText.text.trim().isEmpty) return;
@@ -442,6 +451,14 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       );
       if (response.statusCode == 200) {
         setState(() => _aiResult = jsonDecode(response.body));
+        // Scroll down so user sees the AI result
+        await Future.delayed(const Duration(milliseconds: 100));
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+        );
+        return; // Show result, wait for user to tap Save
       }
     } catch (e) {
       debugPrint('AI error: $e');
@@ -449,10 +466,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       setState(() => _aiLoading = false);
     }
 
-    // Если получили результат — показываем его, сохраняем только при нажатии Save
-    if (_aiResult != null) return;
-
-    // Если AI недоступен — сохраняем сразу
+    // AI unavailable — save immediately
     widget.onSave(
       _Log(id: '', date: DateTime.now(), symptoms: Map.from(_sel), mood: _mood, notes: _notes.text.trim()),
       _aiResult,
@@ -533,6 +547,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
             Flexible(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

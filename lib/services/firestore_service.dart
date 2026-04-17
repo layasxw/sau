@@ -209,7 +209,27 @@ class FirestoreService {
     final doc = await _db.collection('users').doc(_uid).get();
     return doc.data()?['onboardingComplete'] == true;
   }
+
+  // ── AI Reminder Suggestions Cache ─────────────────────────────────────────
+  // Saves suggestions to Firestore with today's date, so we don't re-call AI
+  // every time the reminders screen is opened.
+  static Future<void> saveSuggestedReminders(List<Map<String, dynamic>> reminders) async {
+    final today = DateTime.now();
+    final dateKey = '${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+    await _db.collection('users').doc(_uid).collection('aiCache').doc('suggestions').set({
+      'date': dateKey,
+      'reminders': reminders,
+    });
+  }
+
+  // Returns cached suggestions if they were generated today, otherwise null.
+  static Future<List<Map<String, dynamic>>?> getTodaySuggestedReminders() async {
+    final today = DateTime.now();
+    final dateKey = '${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+    final doc = await _db.collection('users').doc(_uid).collection('aiCache').doc('suggestions').get();
+    if (!doc.exists) return null;
+    final data = doc.data()!;
+    if (data['date'] != dateKey) return null;
+    return List<Map<String, dynamic>>.from(data['reminders'] ?? []);
+  }
 }
-
-
-

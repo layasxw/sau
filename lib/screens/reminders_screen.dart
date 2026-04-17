@@ -150,22 +150,33 @@ class _RemindersScreenState extends State<RemindersScreen> {
     Future<void> _loadSuggestions() async {
       setState(() => _suggestionsLoading = true);
       try {
+        // Check cache first — only call AI once per day
+        final cached = await FirestoreService.getTodaySuggestedReminders();
+        if (cached != null) {
+          setState(() => _suggestedReminders = cached);
+          return;
+        }
+
         final symptoms = await FirestoreService.getSymptoms();
         final meals = await FirestoreService.getMeals();
 
+        final now = DateTime.now();
+
+        // null-safe: skip docs without a valid date
         final todaySymptoms = symptoms.where((s) {
           final date = (s['date'] as Timestamp?)?.toDate();
           if (date == null) return false;
-          final now = DateTime.now();
           return date.year == now.year && date.month == now.month && date.day == now.day;
         }).toList();
 
         final todayMeals = meals.where((m) {
           final date = (m['date'] as Timestamp?)?.toDate();
           if (date == null) return false;
-          final now = DateTime.now();
           return date.year == now.year && date.month == now.month && date.day == now.day;
         }).toList();
+
+        // Only call AI if there's actually data today
+        if (todaySymptoms.isEmpty && todayMeals.isEmpty) return;
 
         final response = await http.post(
           Uri.parse('https://sau-production.up.railway.app/suggest-reminders'),
@@ -182,10 +193,13 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          setState(() => _suggestedReminders = List<Map<String, dynamic>>.from(data['reminders']));
+          final reminders = List<Map<String, dynamic>>.from(data['reminders']);
+          // Save to cache so we don't call AI again today
+          await FirestoreService.saveSuggestedReminders(reminders);
+          setState(() => _suggestedReminders = reminders);
         }
       } catch (e) {
-        print('AI suggestions error: $e');
+        debugPrint('AI suggestions error: $e');
       } finally {
         setState(() => _suggestionsLoading = false);
       }
