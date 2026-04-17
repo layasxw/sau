@@ -26,13 +26,19 @@ client = OpenAI(
 # ── SAFE JSON PARSER ──────────────────────────────────────────────────────────
 
 def safe_json_parse(raw: str):
+    import re
     clean = raw.replace("```json", "").replace("```", "").strip()
     try:
         return json.loads(clean)
     except:
+        match = re.search(r'\{.*\}', clean, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group())
+            except:
+                pass
         return {"error": "Invalid AI response", "raw": clean}
-
-
+    
 # ── Symptom Extraction ────────────────────────────────────────────────────────
 
 class SymptomRequest(BaseModel):

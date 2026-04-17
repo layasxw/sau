@@ -407,6 +407,13 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        if (data.containsKey('error')) {
+          // показать snackbar с ошибкой
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('AI не смог обработать запрос, попробуй ещё раз')),
+          );
+          return;
+        }
         setState(() {
           _sel.clear();
           final symptoms = Map<String, dynamic>.from(data['symptoms'] ?? {});
