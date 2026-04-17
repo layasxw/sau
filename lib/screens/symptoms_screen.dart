@@ -425,23 +425,44 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       setState(() => _aiLoading = false);
     }
   }
-
-  Future<void> _listen() async {
-    if (!_isListening) {
-      final available = await _speech.initialize();
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(onResult: (result) {
+Future<void> _listen() async {
+  if (!_isListening) {
+    final available = await _speech.initialize(
+      onError: (error) {
+        debugPrint('Speech error: $error');
+        setState(() => _isListening = false);
+      },
+      onStatus: (status) {
+        debugPrint('Speech status: $status');
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+    if (available) {
+      setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (result) {
           setState(() => _aiText.text = result.recognizedWords);
-        });
-      }
+        },
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        localeId: 'ru_RU', // или 'en_US'
+      );
     } else {
-      setState(() => _isListening = false);
-      _speech.stop();
+      // Показать сообщение что микрофон недоступен
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Микрофон недоступен. Разрешите доступ в браузере.')),
+        );
+      }
     }
+  } else {
+    setState(() => _isListening = false);
+    _speech.stop();
   }
-
-  Future<void> _analyzeAndSave() async {
+}
+  Future<void> _analyzeSymptoms() async {
     setState(() => _aiLoading = true);
     try {
       final response = await http.post(
@@ -451,29 +472,13 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       );
       if (response.statusCode == 200) {
         setState(() => _aiResult = jsonDecode(response.body));
-        // Scroll down so user sees the AI result
-        await Future.delayed(const Duration(milliseconds: 100));
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-        );
-        return; // Show result, wait for user to tap Save
       }
     } catch (e) {
       debugPrint('AI error: $e');
     } finally {
       setState(() => _aiLoading = false);
     }
-
-    // AI unavailable — save immediately
-    widget.onSave(
-      _Log(id: '', date: DateTime.now(), symptoms: Map.from(_sel), mood: _mood, notes: _notes.text.trim()),
-      _aiResult,
-    );
-    if (mounted) Navigator.pop(context);
   }
-
   Future<void> _saveAfterAI() async {
     widget.onSave(
       _Log(id: '', date: DateTime.now(), symptoms: Map.from(_sel), mood: _mood, notes: _notes.text.trim()),
@@ -569,7 +574,11 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   ),
                   const SizedBox(height: 10),
                   _BouncingWrapper(
-                    onTap: _aiLoading ? null : _analyzeWithAI,
+                    onTap: _canSave && !_aiLoading
+                        ? _aiResult == null
+                            ? _analyzeSymptoms   
+                            : _saveAfterAI     
+                        : null,
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 13),
@@ -774,7 +783,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               ),
               child: _BouncingWrapper(
                 onTap: _canSave && !_aiLoading
-                  ? (_aiResult != null ? _saveAfterAI : _analyzeAndSave)
+                  ? (_aiResult != null ? _saveAfterAI : _analyzeSymptoms)
                   : null,
                 child: Container(
                   width: double.infinity,

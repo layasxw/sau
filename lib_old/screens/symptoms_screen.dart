@@ -461,28 +461,23 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     }
   }
 
-  Future<void> _analyzeSymptoms() async {
-    setState(() => _aiAnalyzing = true);
-    try {
-      final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/analyze-symptoms'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'symptoms': _sel,
-          'mood': _mood,
-          'notes': _notes.text.trim(),
-        }),
-      );
-      if (response.statusCode == 200) {
-        setState(() => _aiResult = jsonDecode(response.body));
-      }
-    } catch (e) {
-      print('AI error: $e');
-    } finally {
-      setState(() => _aiAnalyzing = false);
+Future<void> _analyzeSymptoms() async {
+  setState(() => _aiLoading = true);
+  try {
+    final response = await http.post(
+      Uri.parse('https://sau-production.up.railway.app/analyze-symptoms'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'symptoms': _sel, 'mood': _mood, 'notes': _notes.text.trim()}),
+    );
+    if (response.statusCode == 200) {
+      setState(() => _aiResult = jsonDecode(response.body));
     }
+  } catch (e) {
+    debugPrint('AI error: $e');
+  } finally {
+    setState(() => _aiLoading = false);
   }
-
+}
   @override
   Widget build(BuildContext context) => Container(
         decoration: const BoxDecoration(

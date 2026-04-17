@@ -147,19 +147,21 @@ class _RemindersScreenState extends State<RemindersScreen> {
         ),
       );
 
-    Future<void> _loadSuggestions() async {
-      setState(() => _suggestionsLoading = true);
-      try {
-        // Check cache first — only call AI once per day
-        final cached = await FirestoreService.getTodaySuggestedReminders();
-        if (cached != null) {
-          setState(() => _suggestedReminders = cached);
-          return;
-        }
-
-        final symptoms = await FirestoreService.getSymptoms();
-        final meals = await FirestoreService.getMeals();
-
+      Future<void> _loadSuggestions() async {
+        setState(() => _suggestionsLoading = true);
+        try {
+          debugPrint('=== loadSuggestions start ===');
+          final cached = await FirestoreService.getTodaySuggestedReminders();
+          debugPrint('=== cached: $cached ===');
+          if (cached != null && cached.isNotEmpty) {
+            setState(() => _suggestedReminders = cached);
+            return;
+          }
+          final symptoms = await FirestoreService.getSymptoms();
+          debugPrint('=== symptoms count: ${symptoms.length} ===');
+          final meals = await FirestoreService.getMeals();
+          debugPrint('=== meals count: ${meals.length} ===');
+  
         final now = DateTime.now();
 
         // null-safe: skip docs without a valid date
