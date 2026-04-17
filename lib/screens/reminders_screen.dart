@@ -154,13 +154,15 @@ class _RemindersScreenState extends State<RemindersScreen> {
         final meals = await FirestoreService.getMeals();
 
         final todaySymptoms = symptoms.where((s) {
-          final date = (s['date'] as Timestamp).toDate();
+          final date = (s['date'] as Timestamp?)?.toDate();
+          if (date == null) return false;
           final now = DateTime.now();
           return date.year == now.year && date.month == now.month && date.day == now.day;
         }).toList();
 
         final todayMeals = meals.where((m) {
-          final date = (m['date'] as Timestamp).toDate();
+          final date = (m['date'] as Timestamp?)?.toDate();
+          if (date == null) return false;
           final now = DateTime.now();
           return date.year == now.year && date.month == now.month && date.day == now.day;
         }).toList();
