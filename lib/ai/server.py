@@ -14,12 +14,13 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://sau-rehab-app.web.app",
+        "https://sau-rehab-app.firebaseapp.com",
         "http://localhost",
-        "http://localhost:3000",
-        "http://localhost:8080",
+        "http://localhost:5000",
     ],
-    allow_methods=["POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 client = OpenAI(

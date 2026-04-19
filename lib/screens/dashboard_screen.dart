@@ -217,7 +217,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
               const SizedBox(height: 24),
               _buildHealthStatus(),
-              _buildHealthStatus(),
               const SizedBox(height: 24),
               _buildAIInsights(),
               const SizedBox(height: 24),
