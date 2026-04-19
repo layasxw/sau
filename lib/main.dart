@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:rehab_assist/screens/admin_screen.dart';
 import 'package:rehab_assist/screens/doctor_screen.dart';
+import 'package:rehab_assist/screens/pending_verification_screen.dart';
 import 'package:rehab_assist/screens/onboarding/onboarding_screen.dart';
 import 'package:rehab_assist/services/firestore_service.dart';
 import './firebase_options.dart';
@@ -11,19 +13,27 @@ import './services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
   runApp(const RehabAssistApp());
 }
 
 Future<Widget> _getStartScreen() async {
   if (AuthService.currentUser == null) return const LoginScreen();
+
   final role = await FirestoreService.getRole();
-  if (role == 'doctor') return const DoctorScreen();
-  final onboardingDone = await FirestoreService.isOnboardingComplete(); // см. ниже
+
+  if (role == 'admin') return const AdminScreen();
+
+  if (role == 'doctor') {
+    final status = await FirestoreService.getDoctorStatus();
+    if (status == 'verified') return const DoctorScreen();
+    return const PendingVerificationScreen();
+  }
+
+  // Patient (or role not set yet — treat as patient)
+  final onboardingDone = await FirestoreService.isOnboardingComplete();
   return onboardingDone ? const HomeScreen() : const OnboardingScreen();
 }
 
@@ -36,16 +46,14 @@ class RehabAssistApp extends StatelessWidget {
       title: 'SAU',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      // Check if a user is already signed in when the app opens.
-      // If yes  → skip login and go straight to HomeScreen.
-      // If no   → show LoginScreen as usual.
-      //
-      // AuthService.currentUser is non-null when Firebase has a saved session
-      // (the user signed in previously and never signed out).
       home: FutureBuilder<Widget>(
         future: _getStartScreen(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          if (!snapshot.hasData) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
           return snapshot.data!;
         },
       ),

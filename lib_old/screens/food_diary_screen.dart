@@ -483,7 +483,7 @@ class _AiBanner extends StatelessWidget {
             Text(advice, style: const TextStyle(fontSize: 12, color: AppColors.primary, height: 1.4)),
             const SizedBox(height: 8),
             const Text(
-              'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
+              'This is not medical advice. Please consult your doctor.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
             ),
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../theme/app_theme.dart';
 import '../onboarding_data.dart';
 import 'personal_info_step.dart';
@@ -24,16 +25,15 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
   late final TextEditingController _historyController;
   late final TextEditingController _otherDiagnosisController;
   DateTime? _surgeryDate;
+  String? _attachedFileName;
+  PlatformFile? _attachedFile;
 
   static const _diagnosisOptions = [
     'Stomach cancer (gastric adenocarcinoma)',
     'Gastric lymphoma (MALT / DLBCL)',
     'Gastrointestinal stromal tumor (GIST)',
-    'Stomach cancer with peritoneal metastases',
-    'Stomach cancer with liver metastases',
     'Early-stage stomach cancer (Stage I–II)',
     'Locally advanced stomach cancer (Stage III)',
-    'Metastatic stomach cancer (Stage IV)',
     'Other',
   ];
 
@@ -50,6 +50,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
     }
     _historyController = TextEditingController(text: widget.data.medicalHistory);
     _surgeryDate = widget.data.surgeryDate;
+    _attachedFileName = widget.data.medicalFileName;
   }
 
   @override
@@ -68,6 +69,37 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
       helpText: 'Select surgery date',
     );
     if (picked != null) setState(() => _surgeryDate = picked);
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        withData: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _attachedFile = result.files.first;
+          _attachedFileName = result.files.first.name;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open file picker')),
+        );
+      }
+    }
+  }
+
+  void _removeFile() {
+    setState(() {
+      _attachedFile = null;
+      _attachedFileName = null;
+    });
+    widget.data.medicalFileName = null;
+    widget.data.medicalFileUrl = null;
   }
 
   void _saveAndContinue() {
@@ -96,6 +128,9 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
         : _selectedDiagnosis!;
     widget.data.medicalHistory = _historyController.text.trim();
     widget.data.surgeryDate = _surgeryDate;
+    widget.data.medicalFileName = _attachedFileName;
+    // Actual upload to Firebase Storage happens in the onboarding screen
+    // using _attachedFile?.bytes after onNext() completes.
     widget.onNext();
   }
 
@@ -214,6 +249,75 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
               'E.g. Gastrectomy in March 2024, 6 cycles of FOLFOX chemotherapy...',
             ),
           ),
+
+          const SizedBox(height: 20),
+
+          // ── Medical Document Attachment ──────────────────────────────────
+          const FieldLabel('Attach Medical Document'),
+          const SizedBox(height: 4),
+          const Text(
+            'optional — discharge summary, test results, referral (PDF, image, Word)',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+
+          if (_attachedFileName != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.insert_drive_file_outlined,
+                      size: 20, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _attachedFileName!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _removeFile,
+                    child: const Icon(Icons.close,
+                        size: 18, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: _pickFile,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.upload_file_outlined,
+                        size: 20, color: AppColors.textSecondary),
+                    SizedBox(width: 10),
+                    Text(
+                      'Choose file',
+                      style: TextStyle(
+                          fontSize: 15, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           const SizedBox(height: 48),
 

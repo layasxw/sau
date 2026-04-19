@@ -290,7 +290,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
               )),
               const SizedBox(height: 8),
               const Text(
-                'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
+                'This is not medical advice. Please consult your doctor.',
                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
               ),
             ]),

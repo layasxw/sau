@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -51,40 +52,38 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
     setState(() {
       _logs = data.map((l) {
         return _Log(
-          id: l['id'], 
-          date: (l['date'] as Timestamp).toDate(), 
-          symptoms: Map<String, int>.from(l['symptoms'] ?? {}), 
-          mood: l['mood'] ?? '', 
-          notes: l['notes'] ?? '',
-          aiAnalysis: l['aiAnalysis'] != null 
-            ? Map<String, dynamic>.from(l['aiAnalysis']) 
-            : null
-        );
+            id: l['id'],
+            date: (l['date'] as Timestamp).toDate(),
+            symptoms: Map<String, int>.from(l['symptoms'] ?? {}),
+            mood: l['mood'] ?? '',
+            notes: l['notes'] ?? '',
+            aiAnalysis: l['aiAnalysis'] != null
+                ? Map<String, dynamic>.from(l['aiAnalysis'])
+                : null);
       }).toList();
     });
-  } 
+  }
 
   void _showSheet() => showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) =>
-            _CheckInSheet(onSave: (l, aiResult) async {
-              await FirestoreService.saveSymptom({
-                'date': l.date,
-                'symptoms': l.symptoms,
-                'mood': l.mood,
-                'notes': l.notes,
-                'aiAnalysis': aiResult,
-              });
-              _loadSymptoms();
-            }),
+        builder: (_) => _CheckInSheet(onSave: (l, aiResult) async {
+          await FirestoreService.saveSymptom({
+            'date': l.date,
+            'symptoms': l.symptoms,
+            'mood': l.mood,
+            'notes': l.notes,
+            'aiAnalysis': aiResult,
+          });
+          _loadSymptoms();
+        }),
       );
 
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom + 100;
-    
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -92,41 +91,50 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              Text('Symptom Tracking', style: Theme.of(context).textTheme.displayLarge),
+              Text('Symptom Tracking',
+                  style: Theme.of(context).textTheme.displayLarge),
               const SizedBox(height: 4),
-              Text('Monitor your daily symptoms and track your recovery progress', style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                  'Monitor your daily symptoms and track your recovery progress',
+                  style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  _Toggle(showList: _list, onChanged: (v) => setState(() => _list = v)),
-                  const Spacer(),
-                  _BouncingWrapper(
+              Row(children: [
+                _Toggle(
+                    showList: _list,
+                    onChanged: (v) => setState(() => _list = v)),
+                const Spacer(),
+                _BouncingWrapper(
                     onTap: _showSheet,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: AppGradients.primary,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
-                        ]
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(CupertinoIcons.add, size: 16, color: Colors.white),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 12),
+                        decoration: BoxDecoration(
+                            gradient: AppGradients.primary,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4))
+                            ]),
+                        child: const Row(children: [
+                          Icon(CupertinoIcons.add,
+                              size: 16, color: Colors.white),
                           SizedBox(width: 6),
-                          Text('Check-in', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-                        ]
-                      )
-                    )
-                  ),
-                ]
-              ),
+                          Text('Check-in',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700)),
+                        ]))),
+              ]),
               const SizedBox(height: 24),
               if (_logs.isEmpty)
                 _empty()
               else if (_list)
-                ..._logs.map((l) => Padding(padding: const EdgeInsets.only(bottom: 16), child: _LogCard(log: l)))
+                ..._logs.map((l) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _LogCard(log: l)))
               else
                 _chart(),
               const SizedBox(height: 40),
@@ -144,17 +152,25 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: AppColors.divider, width: 0.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 40, offset: const Offset(0, 10))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 40,
+                offset: const Offset(0, 10))
+          ],
         ),
         child: Column(children: [
-          SizedBox(width: 80, height: 60, child: CustomPaint(painter: _HBPainter())),
+          SizedBox(
+              width: 80, height: 60, child: CustomPaint(painter: _HBPainter())),
           const SizedBox(height: 24),
-          Text('No symptom logs yet', style: Theme.of(context).textTheme.headlineMedium),
+          Text('No symptom logs yet',
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
           const Text(
               'Start tracking your daily symptoms to monitor your recovery',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.45)),
+              style: TextStyle(
+                  fontSize: 14, color: AppColors.textSecondary, height: 1.45)),
         ]),
       );
 
@@ -164,7 +180,12 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: AppColors.divider, width: 0.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 40, offset: const Offset(0, 10))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 40,
+                offset: const Offset(0, 10))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Severity Trend', style: Theme.of(context).textTheme.titleLarge),
@@ -194,7 +215,9 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                           const SizedBox(height: 8),
                           Text('${l.date.day}/${l.date.month}',
                               style: const TextStyle(
-                                  fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                                  fontSize: 10,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600)),
                         ]),
                   ));
                 }).toList()),
@@ -216,20 +239,24 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
             height: 10,
             decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(l, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        Text(l,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary)),
       ]);
 }
 
 class _LogCard extends StatelessWidget {
   final _Log log;
   const _LogCard({required this.log});
-  
+
   Color get _c => log.avg <= 2
       ? const Color(0xFF10B981)
       : log.avg <= 3
           ? const Color(0xFFF59E0B)
           : AppColors.accent;
-          
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(24),
@@ -237,7 +264,12 @@ class _LogCard extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: AppColors.divider, width: 0.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 40, offset: const Offset(0, 10))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 40,
+                offset: const Offset(0, 10))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -248,12 +280,14 @@ class _LogCard extends StatelessWidget {
                     color: AppColors.textPrimary)),
             const Spacer(),
             Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                     color: _c.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20)),
                 child: Text('Severity ${log.avg}/5',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
           ]),
           const SizedBox(height: 16),
           Wrap(
@@ -266,23 +300,35 @@ class _LogCard extends StatelessWidget {
                         ? const Color(0xFFF59E0B)
                         : AppColors.accent;
                 return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                        color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
+                        color: c.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20)),
                     child: Text('${e.key} · ${e.value}/5',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)));
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: c)));
               }).toList()),
           if (log.mood.isNotEmpty) ...[
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(CupertinoIcons.smiley, size: 16, color: AppColors.textSecondary),
+              const Icon(CupertinoIcons.smiley,
+                  size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
-              Text('Mood: ${log.mood}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+              Text('Mood: ${log.mood}',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500)),
             ]),
           ],
           if (log.notes.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(log.notes, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+            Text(log.notes,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
           ],
           const SizedBox(height: 16),
           _AiTip(log: log),
@@ -297,26 +343,33 @@ class _AiTip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ai = log.aiAnalysis;
-    final text = ai != null 
+    final text = ai != null
         ? '${ai['summary'] ?? ''} ${ai['advice'] ?? ''}'.trim()
         : 'Continue monitoring your symptoms and discuss them at your next appointment.';
     final isHigh = ai?['risk'] == 'high';
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: isHigh ? AppColors.accent.withOpacity(0.05) : AppColors.primaryLight,
+          color: isHigh
+              ? AppColors.accent.withOpacity(0.05)
+              : AppColors.primaryLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isHigh 
-                  ? AppColors.accent.withOpacity(0.2) 
+              color: isHigh
+                  ? AppColors.accent.withOpacity(0.2)
                   : AppColors.primary.withOpacity(0.1))),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(CupertinoIcons.sparkles, size: 18, color: isHigh ? AppColors.accent : AppColors.primary),
+        Icon(CupertinoIcons.sparkles,
+            size: 18, color: isHigh ? AppColors.accent : AppColors.primary),
         const SizedBox(width: 12),
         Expanded(
             child: Text(text,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isHigh ? AppColors.accent : AppColors.textPrimary, height: 1.4))),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isHigh ? AppColors.accent : AppColors.textPrimary,
+                    height: 1.4))),
       ]),
     );
   }
@@ -365,11 +418,25 @@ class _CheckInSheet extends StatefulWidget {
 }
 
 class _CheckInSheetState extends State<_CheckInSheet> {
-  // ── Symptom categories ─────────────────────────────────────────────────────
   static const _categories = {
-    'Digestive 🍽️': ['Abdominal pain', 'Nausea', 'Vomiting', 'Bloating', 'Diarrhea', 'Constipation', 'Heartburn', 'Loss of appetite'],
-    'Energy & Body 💪': ['Fatigue', 'Weakness', 'Fever', 'Weight loss', 'Dizziness'],
-    'Mental 🧠': ['Low mood', 'Anxiety'],
+    'Digestive 🍽️': [
+      'Abdominal pain',
+      'Nausea',
+      'Vomiting (single)',
+      'Vomiting (multiple)',
+      'Bloating',
+      'Diarrhea',
+      'Constipation',
+      'Heartburn',
+      'Loss of appetite'
+    ],
+    'Energy & Body 💪': [
+      'Fatigue',
+      'Weakness',
+      'Fever',
+      'Weight loss',
+      'Dizziness'
+    ],
   };
   static const _moods = [
     {'emoji': '😊', 'label': 'Great'},
@@ -384,18 +451,146 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   final _notes = TextEditingController();
   final _aiText = TextEditingController();
   bool _aiLoading = false;
-  final _speech = stt.SpeechToText();
-  bool _isListening = false;
   Map<String, dynamic>? _aiResult;
   final Set<String> _expandedCategories = {};
   final _scrollController = ScrollController();
+
+  // ── Native speech ──────────────────────────────────────────────────────────
+  final _speech = stt.SpeechToText();
+  bool _isListening = false;
+
+  // ── Web speech ─────────────────────────────────────────────────────────────
+  html.SpeechRecognition? _webRecognition;
+  StreamSubscription? _srResult;
+  StreamSubscription? _srError;
+  StreamSubscription? _srEnd;
 
   @override
   void dispose() {
     _notes.dispose();
     _aiText.dispose();
     _scrollController.dispose();
+    _cancelWebSpeech();
     super.dispose();
+  }
+
+  // ── Cancel all web speech subscriptions and stop recognition ───────────────
+  void _cancelWebSpeech() {
+    _srResult?.cancel();
+    _srError?.cancel();
+    _srEnd?.cancel();
+    _srResult = null;
+    _srError = null;
+    _srEnd = null;
+    _webRecognition?.stop();
+    _webRecognition = null;
+  }
+
+  // ── Start a fresh web speech session ──────────────────────────────────────
+  void _startWebRecognition() {
+    if (!_isListening || !mounted) return;
+
+    // Cancel previous subscriptions BEFORE creating a new object
+    _cancelWebSpeech();
+
+    final r = html.SpeechRecognition();
+    r.lang = 'ru-RU';
+    r.interimResults = false; // only final results — no duplicates
+    r.continuous = false;     // one phrase per session — browser decides end
+    _webRecognition = r;
+
+    _srResult = r.onResult.listen((event) {
+      final results = event.results;
+      if (results == null || results.length == 0) return;
+      // Take only the last (and only) result of this session
+      final last = results[results.length - 1];
+      if (last == null || last.isFinal != true) return;
+      final t = last.item(0)?.transcript?.trim() ?? '';
+      if (t.isEmpty) return;
+      final cur = _aiText.text.trim();
+      setState(() {
+        _aiText.text = cur.isEmpty ? t : '$cur $t';
+      });
+    });
+
+    _srError = r.onError.listen((_) {
+      if (!mounted) return;
+      _cancelWebSpeech();
+      setState(() => _isListening = false);
+    });
+
+    _srEnd = r.onEnd.listen((_) {
+      if (!mounted || !_isListening) return;
+      // Restart a new clean session after a short delay
+      Future.delayed(const Duration(milliseconds: 150), _startWebRecognition);
+    });
+
+    try {
+      r.start();
+    } catch (e) {
+      debugPrint('Recognition start error: $e');
+      _cancelWebSpeech();
+      setState(() => _isListening = false);
+    }
+  }
+
+  Future<void> _listen() async {
+    // ── Web ──────────────────────────────────────────────────────────────────
+    if (kIsWeb) {
+      if (_isListening) {
+        _cancelWebSpeech();
+        setState(() => _isListening = false);
+        return;
+      }
+      setState(() => _isListening = true);
+      _startWebRecognition();
+      return;
+    }
+
+    // ── Native (iOS / Android) ────────────────────────────────────────────────
+    if (!_isListening) {
+      final available = await _speech.initialize(
+        onError: (error) {
+          debugPrint('Speech error: $error');
+          setState(() => _isListening = false);
+        },
+        onStatus: (status) {
+          debugPrint('Speech status: $status');
+          if (status == 'done' || status == 'notListening') {
+            setState(() => _isListening = false);
+          }
+        },
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (result) {
+            if (!result.finalResult) return;
+            final recognized = result.recognizedWords.trim();
+            if (recognized.isEmpty) return;
+            final current = _aiText.text.trim();
+            setState(() {
+              _aiText.text =
+                  current.isEmpty ? recognized : '$current $recognized';
+            });
+          },
+          listenFor: Duration.zero,
+          pauseFor: const Duration(seconds: 3),
+          localeId: 'ru_RU',
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content:
+                    Text('Микрофон недоступен. Разрешите доступ в браузере.')),
+          );
+        }
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
   }
 
   Future<void> _analyzeWithAI() async {
@@ -410,9 +605,10 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data.containsKey('error')) {
-          // показать snackbar с ошибкой
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('AI не смог обработать запрос, попробуй ещё раз')),
+            const SnackBar(
+                content:
+                    Text('AI не смог обработать запрос, попробуй ещё раз')),
           );
           return;
         }
@@ -421,8 +617,11 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           final symptoms = Map<String, dynamic>.from(data['symptoms'] ?? {});
           symptoms.forEach((k, v) => _sel[k] = (v as num).toInt());
           const moodMap = {
-            'Great': 'Great', 'Good': 'Good',
-            'Okay': 'Okay', 'Low': 'Low', 'Bad': 'Bad',
+            'Great': 'Great',
+            'Good': 'Good',
+            'Okay': 'Okay',
+            'Low': 'Low',
+            'Bad': 'Bad',
           };
           _mood = moodMap[data['mood']] ?? data['mood'] ?? '';
           _notes.text = data['notes'] ?? '';
@@ -434,72 +633,15 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       setState(() => _aiLoading = false);
     }
   }
-Future<void> _listen() async {
-  if (kIsWeb) {
-    final recognition = html.SpeechRecognition();
-    recognition.lang = 'ru-RU';
-    recognition.interimResults = false;
-    recognition.onResult.listen((event) {
-      final results = event.results;
-      if (results != null && results.isNotEmpty) {
-        final result = results.last;
-        final transcript = result.item(0)?.transcript;
-        setState(() => _aiText.text = transcript ?? '');
-      }
-    });
-    recognition.onError.listen((event) {
-      debugPrint('Speech error: $event');
-      setState(() => _isListening = false);
-    });
-    setState(() => _isListening = true);
-    recognition.start();
-    return;
-  }
 
-  
-  if (!_isListening) {
-    final available = await _speech.initialize(
-      onError: (error) {
-        debugPrint('Speech error: $error');
-        setState(() => _isListening = false);
-      },
-      onStatus: (status) {
-        debugPrint('Speech status: $status');
-        if (status == 'done' || status == 'notListening') {
-          setState(() => _isListening = false);
-        }
-      },
-    );
-    if (available) {
-      setState(() => _isListening = true);
-      _speech.listen(
-        onResult: (result) {
-          setState(() => _aiText.text = result.recognizedWords);
-        },
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
-        localeId: 'ru_RU', // или 'en_US'
-      );
-    } else {
-      // Показать сообщение что микрофон недоступен
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Микрофон недоступен. Разрешите доступ в браузере.')),
-        );
-      }
-    }
-  } else {
-    setState(() => _isListening = false);
-    _speech.stop();
-  }
-}
   Future<void> _analyzeSymptoms() async {
     setState(() => _aiLoading = true);
     try {
       final response = await http.post(
         Uri.parse('https://sau-production.up.railway.app/analyze-symptoms'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'symptoms': _sel, 'mood': _mood, 'notes': _notes.text.trim()}),
+        body: jsonEncode(
+            {'symptoms': _sel, 'mood': _mood, 'notes': _notes.text.trim()}),
       );
       if (response.statusCode == 200) {
         setState(() => _aiResult = jsonDecode(response.body));
@@ -510,9 +652,15 @@ Future<void> _listen() async {
       setState(() => _aiLoading = false);
     }
   }
+
   Future<void> _saveAfterAI() async {
     widget.onSave(
-      _Log(id: '', date: DateTime.now(), symptoms: Map.from(_sel), mood: _mood, notes: _notes.text.trim()),
+      _Log(
+          id: '',
+          date: DateTime.now(),
+          symptoms: Map.from(_sel),
+          mood: _mood,
+          notes: _notes.text.trim()),
       _aiResult,
     );
     if (mounted) Navigator.pop(context);
@@ -535,8 +683,11 @@ Future<void> _listen() async {
             const SizedBox(height: 12),
             Center(
               child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 24),
@@ -544,33 +695,52 @@ Future<void> _listen() async {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Daily Check-in', style: Theme.of(context).textTheme.headlineMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                    ),
-                  ]),
+                  Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Daily Check-in',
+                            style: Theme.of(context).textTheme.headlineMedium),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                      ]),
                   const Spacer(),
                   GestureDetector(
                     onTap: _listen,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: _isListening ? AppColors.accent.withOpacity(0.08) : AppColors.surface,
+                        color: _isListening
+                            ? AppColors.accent.withOpacity(0.08)
+                            : AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _isListening ? AppColors.accent : AppColors.divider),
+                        border: Border.all(
+                            color: _isListening
+                                ? AppColors.accent
+                                : AppColors.divider),
                       ),
                       child: Row(children: [
-                        Icon(_isListening ? CupertinoIcons.mic_solid : CupertinoIcons.mic, size: 16,
-                            color: _isListening ? AppColors.accent : AppColors.textPrimary),
+                        Icon(
+                            _isListening
+                                ? CupertinoIcons.mic_solid
+                                : CupertinoIcons.mic,
+                            size: 16,
+                            color: _isListening
+                                ? AppColors.accent
+                                : AppColors.textPrimary),
                         const SizedBox(width: 6),
                         Text(_isListening ? 'Listening...' : 'Voice',
                             style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600,
-                              color: _isListening ? AppColors.accent : AppColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _isListening
+                                  ? AppColors.accent
+                                  : AppColors.textPrimary,
                             )),
                       ]),
                     ),
@@ -580,259 +750,429 @@ Future<void> _listen() async {
             ),
             const SizedBox(height: 16),
             const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-
             Flexible(
               child: SingleChildScrollView(
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // ── Voice / AI text input ──────────────────────────────
-                  TextField(
-                    controller: _aiText,
-                    maxLines: 3,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      hintText: 'Опишите симптомы текстом или используйте голос...',
-                      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                      filled: true,
-                      fillColor: AppColors.background,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _BouncingWrapper(
-                    onTap: _canSave && !_aiLoading
-                        ? _aiResult == null
-                            ? _analyzeSymptoms   
-                            : _saveAfterAI     
-                        : null,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                      ),
-                      child: _aiLoading
-                        ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
-                        : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(CupertinoIcons.sparkles, size: 16, color: AppColors.primary),
-                            SizedBox(width: 8),
-                            Text('Заполнить через AI', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                          ]),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                  const SizedBox(height: 24),
-                  // ─────────────────────────────────────────────────────
-                  _stepLabel('1', 'Select your symptoms'),
-                  const SizedBox(height: 16),
-                  ..._categories.entries.map((cat) {
-                    final allSymptoms = cat.value;
-                    final isExpanded = _expandedCategories.contains(cat.key);
-                    final visibleSymptoms = isExpanded ? allSymptoms : allSymptoms.take(4).toList();
-                    final hasMore = allSymptoms.length > 4;
-                    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(cat.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8, runSpacing: 8,
-                        children: [
-                          ...visibleSymptoms.map((s) {
-                            final selected = _sel.containsKey(s);
-                            return GestureDetector(
-                              onTap: () => setState(() => selected ? _sel.remove(s) : _sel[s] = 2),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: selected ? AppColors.primary : AppColors.background,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
-                                ),
-                                child: Text(s,
-                                    style: TextStyle(
-                                      fontSize: 13, fontWeight: FontWeight.w600,
-                                      color: selected ? Colors.white : AppColors.textPrimary,
-                                    )),
-                              ),
-                            );
-                          }),
-                          if (hasMore)
-                            GestureDetector(
-                              onTap: () => setState(() =>
-                                isExpanded ? _expandedCategories.remove(cat.key) : _expandedCategories.add(cat.key)),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                                ),
-                                child: Text(isExpanded ? 'Show less' : '+ ${allSymptoms.length - 4} more',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ]);
-                  }),
-
-                  if (_sel.isNotEmpty) ...[ 
-                    const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                    const SizedBox(height: 20),
-                    const Text('Severity', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
-                    const SizedBox(height: 12),
-                    ..._sel.keys.map((name) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(children: [
-                        Expanded(child: Text(name, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w500))),
-                        Text('${_sel[name]}/5', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                        Expanded(
-                          flex: 2,
-                          child: Slider(
-                            min: 1, max: 5, divisions: 4,
-                            value: _sel[name]!.toDouble(),
-                            activeColor: AppColors.primary,
-                            inactiveColor: AppColors.primaryLight,
-                            onChanged: (v) => setState(() => _sel[name] = v.round()),
-                          ),
+                padding: EdgeInsets.fromLTRB(
+                    24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Voice / AI text input ──────────────────────────────
+                      TextField(
+                        controller: _aiText,
+                        maxLines: 3,
+                        style: const TextStyle(
+                            fontSize: 14, color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Опишите симптомы текстом или используйте голос...',
+                          hintStyle: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 13),
+                          filled: true,
+                          fillColor: AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide:
+                                  const BorderSide(color: AppColors.divider)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primary, width: 1.5)),
                         ),
-                      ]),
-                    )),
-                    const SizedBox(height: 12),
-                  ],
-
-                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                  const SizedBox(height: 24),
-
-                  _stepLabel('2', 'Overall mood'),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: _moods.map((m) {
-                      final sel = _mood == m['label'];
-                      return GestureDetector(
-                        onTap: () => setState(() => _mood = m['label']!),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      const SizedBox(height: 10),
+                      _BouncingWrapper(
+                        onTap: _aiText.text.trim().isNotEmpty && !_aiLoading
+                            ? _analyzeWithAI
+                            : null,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
                           decoration: BoxDecoration(
-                            color: sel ? AppColors.primaryLight : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: sel ? AppColors.primary : Colors.transparent, width: 1.5),
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: AppColors.primary.withOpacity(0.2)),
                           ),
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            Text(m['emoji']!, style: const TextStyle(fontSize: 28)),
-                            const SizedBox(height: 6),
-                            Text(m['label']!, style: TextStyle(
-                              fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                              color: sel ? AppColors.primary : AppColors.textSecondary,
-                            )),
-                          ]),
+                          child: _aiLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.primary)))
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                      Icon(CupertinoIcons.sparkles,
+                                          size: 16, color: AppColors.primary),
+                                      SizedBox(width: 8),
+                                      Text('Заполнить через AI',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary)),
+                                    ]),
                         ),
-                      );
-                    }).toList(),
-                  ),
-
-                  const SizedBox(height: 24),
-                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                  const SizedBox(height: 24),
-
-                  _stepLabel('3', 'Add details (optional)'),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _notes,
-                    maxLines: 3,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      hintText: 'Any notes for your doctor...',
-                      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                      filled: true,
-                      fillColor: AppColors.background,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                    ),
-                  ),
-
-                  if (_aiResult != null) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _aiResult!['risk'] == 'high' ? AppColors.accent.withOpacity(0.05) : AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _aiResult!['risk'] == 'high' ? AppColors.accent.withOpacity(0.3) : AppColors.primary.withOpacity(0.2)),
                       ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Icon(CupertinoIcons.sparkles, size: 16, color: _aiResult!['risk'] == 'high' ? AppColors.accent : AppColors.primary),
-                          const SizedBox(width: 8),
-                          Text('AI Insights', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _aiResult!['risk'] == 'high' ? AppColors.accent : AppColors.primary)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _aiResult!['risk'] == 'high' ? AppColors.accent : (_aiResult!['risk'] == 'medium' ? Colors.orange : const Color(0xFF10B981)),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text((_aiResult!['risk'] ?? '').toString().toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-                          ),
-                        ]),
+                      const SizedBox(height: 24),
+                      const Divider(
+                          height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 24),
+                      _stepLabel('1', 'Select your symptoms'),
+                      const SizedBox(height: 16),
+                      ..._categories.entries.map((cat) {
+                        final allSymptoms = cat.value;
+                        final isExpanded =
+                            _expandedCategories.contains(cat.key);
+                        final visibleSymptoms = isExpanded
+                            ? allSymptoms
+                            : allSymptoms.take(4).toList();
+                        final hasMore = allSymptoms.length > 4;
+                        return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(cat.key,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                      letterSpacing: 0.3)),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  ...visibleSymptoms.map((s) {
+                                    final selected = _sel.containsKey(s);
+                                    return GestureDetector(
+                                      onTap: () => setState(() => selected
+                                          ? _sel.remove(s)
+                                          : _sel[s] = 2),
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 150),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: selected
+                                              ? AppColors.primary
+                                              : AppColors.background,
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          border: Border.all(
+                                              color: selected
+                                                  ? AppColors.primary
+                                                  : AppColors.divider),
+                                        ),
+                                        child: Text(s,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: selected
+                                                  ? Colors.white
+                                                  : AppColors.textPrimary,
+                                            )),
+                                      ),
+                                    );
+                                  }),
+                                  if (hasMore)
+                                    GestureDetector(
+                                      onTap: () => setState(() => isExpanded
+                                          ? _expandedCategories.remove(cat.key)
+                                          : _expandedCategories.add(cat.key)),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.background,
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          border: Border.all(
+                                              color: AppColors.primary
+                                                  .withOpacity(0.3)),
+                                        ),
+                                        child: Text(
+                                            isExpanded
+                                                ? 'Show less'
+                                                : '+ ${allSymptoms.length - 4} more',
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.primary)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                            ]);
+                      }),
+
+                      if (_sel.isNotEmpty) ...[
+                        const Divider(
+                            height: 1,
+                            color: AppColors.divider,
+                            thickness: 0.5),
+                        const SizedBox(height: 20),
+                        const Text('Severity',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                                letterSpacing: 0.3)),
                         const SizedBox(height: 12),
-                        Text(_aiResult!['summary'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4)),
-                        const SizedBox(height: 6),
-                        Text(_aiResult!['advice'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
-                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+                        ..._sel.keys.map((name) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(children: [
+                                Expanded(
+                                    child: Text(name,
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w500))),
+                                Text('${_sel[name]}/5',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary)),
+                                Expanded(
+                                  flex: 2,
+                                  child: Slider(
+                                    min: 1,
+                                    max: 5,
+                                    divisions: 4,
+                                    value: _sel[name]!.toDouble(),
+                                    activeColor: AppColors.primary,
+                                    inactiveColor: AppColors.primaryLight,
+                                    onChanged: (v) =>
+                                        setState(() => _sel[name] = v.round()),
+                                  ),
+                                ),
+                              ]),
+                            )),
+                        const SizedBox(height: 12),
+                      ],
+
+                      const Divider(
+                          height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 24),
+
+                      _stepLabel('2', 'Overall mood'),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: _moods.map((m) {
+                          final sel = _mood == m['label'];
+                          return GestureDetector(
+                            onTap: () => setState(() => _mood = m['label']!),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? AppColors.primaryLight
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: sel
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                    width: 1.5),
+                              ),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(m['emoji']!,
+                                        style: const TextStyle(fontSize: 28)),
+                                    const SizedBox(height: 6),
+                                    Text(m['label']!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: sel
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          color: sel
+                                              ? AppColors.primary
+                                              : AppColors.textSecondary,
+                                        )),
+                                  ]),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 24),
+                      const Divider(
+                          height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 24),
+
+                      _stepLabel('3', 'Add details (optional)'),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _notes,
+                        maxLines: 3,
+                        style: const TextStyle(
+                            fontSize: 14, color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Any notes for your doctor...',
+                          hintStyle: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 14),
+                          filled: true,
+                          fillColor: AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 16),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide:
+                                  const BorderSide(color: AppColors.divider)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primary, width: 1.5)),
                         ),
-                      ]),
-                    ),
-                  ],
-                  const SizedBox(height: 40),
-                ]),
+                      ),
+
+                      if (_aiResult != null) ...[
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _aiResult!['risk'] == 'high'
+                                ? AppColors.accent.withOpacity(0.05)
+                                : AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: _aiResult!['risk'] == 'high'
+                                    ? AppColors.accent.withOpacity(0.3)
+                                    : AppColors.primary.withOpacity(0.2)),
+                          ),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  Icon(CupertinoIcons.sparkles,
+                                      size: 16,
+                                      color: _aiResult!['risk'] == 'high'
+                                          ? AppColors.accent
+                                          : AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Text('AI Insights',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: _aiResult!['risk'] == 'high'
+                                              ? AppColors.accent
+                                              : AppColors.primary)),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _aiResult!['risk'] == 'high'
+                                          ? AppColors.accent
+                                          : (_aiResult!['risk'] == 'medium'
+                                              ? Colors.orange
+                                              : const Color(0xFF10B981)),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                        (_aiResult!['risk'] ?? '')
+                                            .toString()
+                                            .toUpperCase(),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800)),
+                                  ),
+                                ]),
+                                const SizedBox(height: 12),
+                                Text(_aiResult!['summary'] ?? '',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textPrimary,
+                                        height: 1.4)),
+                                const SizedBox(height: 6),
+                                Text(_aiResult!['advice'] ?? '',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textSecondary,
+                                        height: 1.4)),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'This is not medical advice. Please consult your doctor.',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondary,
+                                      fontStyle: FontStyle.italic),
+                                ),
+                              ]),
+                        ),
+                      ],
+                      const SizedBox(height: 40),
+                    ]),
               ),
             ),
-
             Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
-                border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+                border: Border(
+                    top: BorderSide(color: AppColors.divider, width: 0.5)),
               ),
               child: _BouncingWrapper(
-                onTap: _canSave && !_aiLoading
-                  ? (_aiResult != null ? _saveAfterAI : _analyzeSymptoms)
-                  : null,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    gradient: (_canSave && !_aiLoading) ? AppGradients.primary : null,
-                    color: (!_canSave || _aiLoading) ? AppColors.divider : null,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: _aiLoading
-                    ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
-                    : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(_aiResult != null ? CupertinoIcons.checkmark_alt : CupertinoIcons.sparkles, size: 18, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Text(_aiResult != null ? 'Save' : 'Analyze & Save', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-                      ]),
-                )
-              ),
+                  onTap: _canSave && !_aiLoading
+                      ? (_aiResult != null ? _saveAfterAI : _analyzeSymptoms)
+                      : null,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: (_canSave && !_aiLoading)
+                          ? AppGradients.primary
+                          : null,
+                      color:
+                          (!_canSave || _aiLoading) ? AppColors.divider : null,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: _aiLoading
+                        ? const Center(
+                            child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white)))
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                                Icon(
+                                    _aiResult != null
+                                        ? CupertinoIcons.checkmark_alt
+                                        : CupertinoIcons.sparkles,
+                                    size: 18,
+                                    color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(
+                                    _aiResult != null
+                                        ? 'Save'
+                                        : 'Analyze & Save',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700)),
+                              ]),
+                  )),
             ),
           ],
         ),
@@ -841,17 +1181,27 @@ Future<void> _listen() async {
   }
 
   Widget _stepLabel(String step, String title) => Row(children: [
-    Container(
-      width: 24, height: 24,
-      decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-      child: Center(child: Text(step, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white))),
-    ),
-    const SizedBox(width: 10),
-    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary, letterSpacing: -0.2)),
-  ]);
+        Container(
+          width: 24,
+          height: 24,
+          decoration: const BoxDecoration(
+              color: AppColors.primary, shape: BoxShape.circle),
+          child: Center(
+              child: Text(step,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white))),
+        ),
+        const SizedBox(width: 10),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2)),
+      ]);
 }
-
-
 
 class _HBPainter extends CustomPainter {
   @override
@@ -886,29 +1236,38 @@ class _BouncingWrapper extends StatefulWidget {
   State<_BouncingWrapper> createState() => _BouncingWrapperState();
 }
 
-class _BouncingWrapperState extends State<_BouncingWrapper> with SingleTickerProviderStateMixin {
+class _BouncingWrapperState extends State<_BouncingWrapper>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
-    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 100));
+    _scale = Tween<double>(begin: 1.0, end: 0.96)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
-  
+
   @override
-  void dispose() {  
-    _controller.dispose(); 
-    super.dispose(); 
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTapDown: (_) => widget.onTap != null ? _controller.forward() : null,
-    onTapUp: (_) { if (widget.onTap != null) { _controller.reverse(); widget.onTap!(); HapticFeedback.lightImpact(); } },
-    onTapCancel: () => _controller.reverse(),
-    child: ScaleTransition(scale: _scale, child: widget.child),
-  );
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => widget.onTap != null ? _controller.forward() : null,
+        onTapUp: (_) {
+          if (widget.onTap != null) {
+            _controller.reverse();
+            widget.onTap!();
+            HapticFeedback.lightImpact();
+          }
+        },
+        onTapCancel: () => _controller.reverse(),
+        child: ScaleTransition(scale: _scale, child: widget.child),
+      );
 }

@@ -43,6 +43,7 @@ class _Reminder {
   final IconData icon;
   final Color iconBg, iconColor;
   String title, recurrence, time, description;
+  DateTime? onceDate;
   bool hasAiBadge, completed;
 
   _Reminder({
@@ -55,6 +56,7 @@ class _Reminder {
     required this.recurrence,
     required this.time,
     required this.description,
+    this.onceDate,
     this.hasAiBadge = false,
     this.completed = false,
   });
@@ -311,14 +313,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ),
                 ]),
               )),
+              const SizedBox(height: 12),
+              const Text(
+                'This is not medical advice. Please consult your doctor.',
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+              ),
             ]),
           ),
         ],
-          const SizedBox(height: 8),
-          const Text(
-            'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
-            style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
-          ),
         const SizedBox(height: 16),
         // Filter chips
         SingleChildScrollView(
@@ -484,7 +486,10 @@ class _Card extends StatelessWidget {
                         decoration: BoxDecoration(
                             color: AppColors.background,
                             borderRadius: BorderRadius.circular(20)),
-                        child: Text(item.recurrence,
+                        child: Text(
+                            item.recurrence == 'Once' && item.onceDate != null
+                                ? 'Once · ${item.onceDate!.day.toString().padLeft(2, '0')}.${item.onceDate!.month.toString().padLeft(2, '0')}.${item.onceDate!.year}'
+                                : item.recurrence,
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -527,6 +532,7 @@ class _AddSheetState extends State<_AddSheet> {
   final _desc  = TextEditingController();
   String _type = 'Medication', _rec = 'Daily';
   TimeOfDay _time = const TimeOfDay(hour: 8, minute: 0);
+  DateTime? _onceDate;
 
   static const _types = [
     'Medication', 'Doctor appointment', 'Lab test',
@@ -672,6 +678,55 @@ class _AddSheetState extends State<_AddSheet> {
                   ),
                 ])),
           ]),
+          if (_rec == 'Once') ...[
+            const SizedBox(height: 16),
+            const Text('Date',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _onceDate ?? DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                  lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                );
+                if (picked != null) setState(() => _onceDate = picked);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.divider)),
+                child: Row(children: [
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 18, color: AppColors.textSecondary),
+                  const SizedBox(width: 8),
+                  Text(
+                    _onceDate == null
+                        ? 'Select date'
+                        : '${_onceDate!.day.toString().padLeft(2, '0')}.${_onceDate!.month.toString().padLeft(2, '0')}.${_onceDate!.year}',
+                    style: TextStyle(
+                        fontSize: 15,
+                        color: _onceDate == null
+                            ? AppColors.textSecondary
+                            : AppColors.textPrimary),
+                  ),
+                  const Spacer(),
+                  if (_onceDate != null)
+                    GestureDetector(
+                      onTap: () => setState(() => _onceDate = null),
+                      child: const Icon(Icons.close,
+                          size: 16, color: AppColors.textSecondary),
+                    ),
+                ]),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           const Text('Notes (optional)',
               style: TextStyle(
@@ -702,6 +757,7 @@ class _AddSheetState extends State<_AddSheet> {
                   title:       _title.text.trim(),
                   recurrence:  _rec,
                   time:        _time.format(context),
+                  onceDate:    _rec == 'Once' ? _onceDate : null,
                   description: _desc.text.trim().isEmpty
                       ? 'No notes.'
                       : _desc.text.trim(),

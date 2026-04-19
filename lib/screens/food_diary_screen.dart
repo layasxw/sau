@@ -223,25 +223,29 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                       bg: AppColors.calorieBg,
                       color: const Color(0xFFFF9800),
                       value: '$_cals kcal',
-                      label: 'Calories'),
+                      label: 'Calories',
+                      target: _dailyCalories > 0 ? '${_dailyCalories.toInt()} kcal' : null),
                   _NutrCard(
-                      icon: Icons.egg_outlined, // No direct cupertino variant
+                      icon: Icons.egg_outlined,
                       bg: AppColors.proteinBg,
                       color: AppColors.accent,
                       value: '${_protein.toStringAsFixed(1)}g',
-                      label: 'Protein'),
+                      label: 'Protein',
+                      target: _dailyProtein > 0 ? '${_dailyProtein.toStringAsFixed(0)}g' : null),
                   _NutrCard(
-                      icon: Icons.grain, // No direct cupertino variant
+                      icon: Icons.grain,
                       bg: AppColors.carbsBg,
                       color: AppColors.primary,
                       value: '${_carbs.toStringAsFixed(1)}g',
-                      label: 'Carbs'),
+                      label: 'Carbs',
+                      target: _dailyCarbs > 0 ? '${_dailyCarbs.toStringAsFixed(0)}g' : null),
                   _NutrCard(
                       icon: CupertinoIcons.drop,
                       bg: AppColors.fatBg,
                       color: const Color(0xFFFF7043),
                       value: '${_fat.toStringAsFixed(1)}g',
-                      label: 'Fat'),
+                      label: 'Fat',
+                      target: _dailyFat > 0 ? '${_dailyFat.toStringAsFixed(0)}g' : null),
                 ],
               ),
               const SizedBox(height: 24),
@@ -318,12 +322,14 @@ class _NutrCard extends StatelessWidget {
   final IconData icon;
   final Color bg, color;
   final String value, label;
+  final String? target;
   const _NutrCard({
     required this.icon,
     required this.bg,
     required this.color,
     required this.value,
-    required this.label
+    required this.label,
+    this.target,
   });
 
   @override
@@ -358,6 +364,16 @@ class _NutrCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                     letterSpacing: -0.5)),
+            if (target != null)
+              Text(
+                'goal: $target',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: color.withOpacity(0.75)),
+              ),
         ]),
       );
 }
@@ -490,7 +506,7 @@ class _AiBanner extends StatelessWidget {
         ],
         const SizedBox(height: 8),
         const Text(
-          'Это не медицинский совет. Проконсультируйтесь с вашим врачом.',
+          'This is not medical advice. Please consult your doctor.',
           style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
         ),
       ]),

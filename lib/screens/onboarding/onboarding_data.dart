@@ -17,6 +17,8 @@ class OnboardingData {
   String diagnosis = '';
   String medicalHistory = '';
   DateTime? surgeryDate;
+  String? medicalFileUrl;
+  String? medicalFileName;
 
   // ── Step 4: Restrictions ───────────────────────────
   List<String> allergies = [];

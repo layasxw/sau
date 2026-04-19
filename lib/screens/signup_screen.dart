@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rehab_assist/screens/doctor_screen.dart';
+import 'package:rehab_assist/screens/pending_verification_screen.dart';
 import 'package:rehab_assist/screens/onboarding/onboarding_screen.dart';
 import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
@@ -78,11 +78,11 @@ class _SignupScreenState extends State<SignupScreen> {
       // Account created — go to onboarding so user fills in their profile
       // Use pushReplacement so they can't go back to the signup screenrr
 
-      await FirestoreService.saveRole(_role);
+      await FirestoreService.saveRole(_role, fullName: name);
 
       if (_role == 'doctor') {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DoctorScreen()),
+          MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),
         );
       } else {
         Navigator.of(context).pushReplacement(

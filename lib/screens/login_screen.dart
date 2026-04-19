@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rehab_assist/screens/admin_screen.dart';
 import 'package:rehab_assist/screens/doctor_screen.dart';
 import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
@@ -50,6 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role == 'doctor') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const DoctorScreen()),
+        );
+      } else if (role == 'admin') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const AdminScreen()),
         );
       } else {
         Navigator.of(context).pushReplacement(
