@@ -64,91 +64,83 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
     });
   }
 
-  void _showSheet({bool autoListen = false}) => showModalBottomSheet(
+  void _showSheet() => showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => _CheckInSheet(
-          autoListen: autoListen,
-          onSave: (l, aiResult) async {
-            await FirestoreService.saveSymptom({
-              'date': l.date,
-              'symptoms': l.symptoms,
-              'mood': l.mood,
-              'notes': l.notes,
-              'aiAnalysis': aiResult,
-            });
-            _loadSymptoms();
-          },
-        ),
+            autoListen: true,
+            onSave: (l, aiResult) async {
+              await FirestoreService.saveSymptom({
+                'date': l.date,
+                'symptoms': l.symptoms,
+                'mood': l.mood,
+                'notes': l.notes,
+                'aiAnalysis': aiResult,
+              });
+              _loadSymptoms();
+            }),
       );
 
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom + 100;
 
-    return Stack(
-      children: [
-        CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  Text('Symptom Tracking',
-                      style: Theme.of(context).textTheme.displayLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                      'Monitor your daily symptoms and track your recovery progress',
-                      style: Theme.of(context).textTheme.bodyMedium),
-                  const SizedBox(height: 24),
-                  // только тоггл, кнопку убрали
-                  _Toggle(
-                      showList: _list,
-                      onChanged: (v) => setState(() => _list = v)),
-                  const SizedBox(height: 24),
-                  if (_logs.isEmpty)
-                    _empty()
-                  else if (_list)
-                    ..._logs.map((l) => Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _LogCard(log: l)))
-                  else
-                    _chart(),
-                  const SizedBox(height: 40),
-                ]),
-              ),
-            ),
-          ],
-        ),
-
-        // большая круглая кнопка с микрофоном над навбаром
-        Positioned(
-          bottom: MediaQuery.of(context).padding.bottom + 90,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: _BouncingWrapper(
-              onTap: () => _showSheet(autoListen: true),
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  gradient: AppGradients.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(CupertinoIcons.mic_fill,
-                    color: Colors.white, size: 30),
-              ),
-            ),
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              Text('Symptom Tracking',
+                  style: Theme.of(context).textTheme.displayLarge),
+              const SizedBox(height: 4),
+              Text(
+                  'Monitor your daily symptoms and track your recovery progress',
+                  style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 24),
+              Row(children: [
+                _Toggle(
+                    showList: _list,
+                    onChanged: (v) => setState(() => _list = v)),
+                const Spacer(),
+                _BouncingWrapper(
+                    onTap: _showSheet,
+                    child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 12),
+                        decoration: BoxDecoration(
+                            gradient: AppGradients.primary,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4))
+                            ]),
+                        child: const Row(children: [
+                          Icon(CupertinoIcons.add,
+                              size: 16, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('Check-in',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700)),
+                        ]))),
+              ]),
+              const SizedBox(height: 24),
+              if (_logs.isEmpty)
+                _empty()
+              else if (_list)
+                ..._logs.map((l) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _LogCard(log: l)))
+              else
+                _chart(),
+              const SizedBox(height: 40),
+            ]),
           ),
         ),
       ],
@@ -424,11 +416,20 @@ class _CheckInSheet extends StatefulWidget {
   final void Function(_Log, Map<String, dynamic>?) onSave;
   final bool autoListen;
   const _CheckInSheet({required this.onSave, this.autoListen = false});
+
   @override
   State<_CheckInSheet> createState() => _CheckInSheetState();
 }
 
 class _CheckInSheetState extends State<_CheckInSheet> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoListen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _listen());
+    }
+  }
+
   static const _categories = {
     'Digestive 🍽️': [
       'Abdominal pain',
@@ -466,22 +467,15 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   final Set<String> _expandedCategories = {};
   final _scrollController = ScrollController();
 
+  // ── Native speech ──────────────────────────────────────────────────────────
   final _speech = stt.SpeechToText();
   bool _isListening = false;
 
+  // ── Web speech ─────────────────────────────────────────────────────────────
   html.SpeechRecognition? _webRecognition;
   StreamSubscription? _srResult;
   StreamSubscription? _srError;
   StreamSubscription? _srEnd;
-
-  @override
-  void initState() {
-    super.initState();
-    // автозапуск микрофона если открыли через большую кнопку
-    if (widget.autoListen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _listen());
-    }
-  }
 
   @override
   void dispose() {
@@ -492,6 +486,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     super.dispose();
   }
 
+  // ── Cancel all web speech subscriptions and stop recognition ───────────────
   void _cancelWebSpeech() {
     _srResult?.cancel();
     _srError?.cancel();
@@ -503,19 +498,23 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     _webRecognition = null;
   }
 
+  // ── Start a fresh web speech session ──────────────────────────────────────
   void _startWebRecognition() {
     if (!_isListening || !mounted) return;
+
+    // Cancel previous subscriptions BEFORE creating a new object
     _cancelWebSpeech();
 
     final r = html.SpeechRecognition();
     r.lang = 'ru-RU';
-    r.interimResults = false;
-    r.continuous = false;
+    r.interimResults = false; // only final results — no duplicates
+    r.continuous = false; // one phrase per session — browser decides end
     _webRecognition = r;
 
     _srResult = r.onResult.listen((event) {
       final results = event.results;
       if (results == null || results.length == 0) return;
+      // Take only the last (and only) result of this session
       final last = results[results.length - 1];
       if (last == null || last.isFinal != true) return;
       final t = last.item(0)?.transcript?.trim() ?? '';
@@ -534,6 +533,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
     _srEnd = r.onEnd.listen((_) {
       if (!mounted || !_isListening) return;
+      // Restart a new clean session after a short delay
       Future.delayed(const Duration(milliseconds: 150), _startWebRecognition);
     });
 
@@ -547,6 +547,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   }
 
   Future<void> _listen() async {
+    // ── Web ──────────────────────────────────────────────────────────────────
     if (kIsWeb) {
       if (_isListening) {
         _cancelWebSpeech();
@@ -558,6 +559,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       return;
     }
 
+    // ── Native (iOS / Android) ────────────────────────────────────────────────
     if (!_isListening) {
       final available = await _speech.initialize(
         onError: (error) {
@@ -593,7 +595,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content:
-                    Text('Microphone unavailable. Allow access in settings.')),
+                    Text('Микрофон недоступен. Разрешите доступ в браузере.')),
           );
         }
       }
@@ -616,7 +618,9 @@ class _CheckInSheetState extends State<_CheckInSheet> {
         final data = jsonDecode(response.body);
         if (data.containsKey('error')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('AI could not process the request, try again')),
+            const SnackBar(
+                content:
+                    Text('AI не смог обработать запрос, попробуй ещё раз')),
           );
           return;
         }
@@ -645,12 +649,31 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   Future<void> _analyzeSymptoms() async {
     setState(() => _aiLoading = true);
     try {
+      final profile = await FirestoreService.getUserProfile();
+      final medical = await FirestoreService.getMedicalProfile();
+
+      int? daysSinceSurgery;
+      final raw = medical?['surgeryDate'];
+      if (raw != null) {
+        final surgeryDate = (raw as Timestamp).toDate();
+        daysSinceSurgery = DateTime.now().difference(surgeryDate).inDays;
+      }
+
       final response = await http.post(
         Uri.parse('https://sau-production.up.railway.app/analyze-symptoms'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(
-            {'symptoms': _sel, 'mood': _mood, 'notes': _notes.text.trim()}),
+        body: jsonEncode({
+          'symptoms': _sel,
+          'mood': _mood,
+          'notes': _notes.text.trim(),
+          'diagnosis': medical?['diagnosis'],
+          'days_since_surgery': daysSinceSurgery,
+          'restrictions': {
+            'allergies': profile?['allergies'] ?? [],
+          },
+        }),
       );
+
       if (response.statusCode == 200) {
         setState(() => _aiResult = jsonDecode(response.body));
       }
@@ -774,7 +797,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                             fontSize: 14, color: AppColors.textPrimary),
                         decoration: InputDecoration(
                           hintText:
-                              'Describe your symptoms by voice or text...',
+                              'Опишите симптомы текстом или используйте голос...',
                           hintStyle: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 13),
                           filled: true,
@@ -822,7 +845,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                                       Icon(CupertinoIcons.sparkles,
                                           size: 16, color: AppColors.primary),
                                       SizedBox(width: 8),
-                                      Text('Fill with AI',
+                                      Text('Заполнить через AI',
                                           style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
@@ -922,7 +945,6 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                               const SizedBox(height: 20),
                             ]);
                       }),
-
                       if (_sel.isNotEmpty) ...[
                         const Divider(
                             height: 1,
@@ -967,11 +989,9 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                             )),
                         const SizedBox(height: 12),
                       ],
-
                       const Divider(
                           height: 1, color: AppColors.divider, thickness: 0.5),
                       const SizedBox(height: 24),
-
                       _stepLabel('2', 'Overall mood'),
                       const SizedBox(height: 16),
                       Row(
@@ -1016,12 +1036,10 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                           );
                         }).toList(),
                       ),
-
                       const SizedBox(height: 24),
                       const Divider(
                           height: 1, color: AppColors.divider, thickness: 0.5),
                       const SizedBox(height: 24),
-
                       _stepLabel('3', 'Add details (optional)'),
                       const SizedBox(height: 16),
                       TextField(
@@ -1050,7 +1068,6 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                                   color: AppColors.primary, width: 1.5)),
                         ),
                       ),
-
                       if (_aiResult != null) ...[
                         const SizedBox(height: 24),
                         Container(

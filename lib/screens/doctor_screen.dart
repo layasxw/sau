@@ -208,7 +208,9 @@ class _PatientCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        Navigator.of(context).push(
+        debugPrint('tapped: ${patient['fullName']}');
+        Navigator.push(
+          context,
           MaterialPageRoute(
             builder: (_) => PatientDetailScreen(patient: patient),
           ),
