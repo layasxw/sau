@@ -21,12 +21,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _aiData;
   bool _aiLoading = false;
 
-  // Recovery score state
-  int _recoveryScore = 0;
-  double? _recoveryDelta;
-  double? _recoveryTrend;
-  String _recoveryLabel = '';
-  bool _scoreLoading = true;
+  // Motivation card state
+  DateTime? _surgeryDate;
+  bool _todayHasFood = false;
+  bool _todaySymptomsHigh = false;
+  bool _todayHasSymptoms = false;
+  bool _cardLoading = true;
+  String? _doctorMessage;
 
   void _go(int i) => widget.onNavigate?.call(i);
 
@@ -54,17 +55,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final medical   = results[1] as Map<String, dynamic>?;
     final reminders = results[2] as List<Map<String, dynamic>>;
 
+    // surgery date
+    DateTime? surgeryDate;
+    final raw = medical?['surgeryDate'];
+    if (raw is Timestamp) surgeryDate = raw.toDate();
+
     setState(() {
       _fullName       = profile?['fullName'] as String?;
       _diagnosis      = medical?['diagnosis'] as String?;
       _remindersCount = reminders.length;
+      _surgeryDate    = surgeryDate;
     });
 
-    await _loadRecoveryScore();
+    final messages = await FirestoreService.getMyMessages();
+    if (messages.isNotEmpty) {
+      setState(() => _doctorMessage = messages.first['text'] as String?);
+    }
+
+    await _loadMotivationData();
   }
 
-  Future<void> _loadRecoveryScore() async {
-    setState(() => _scoreLoading = true);
+  Future<void> _loadMotivationData() async {
+    setState(() => _cardLoading = true);
     try {
       final results = await Future.wait([
         FirestoreService.getSymptoms(),
@@ -74,74 +86,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final symptoms = results[0] as List<Map<String, dynamic>>;
       final meals    = results[1] as List<Map<String, dynamic>>;
 
-      // Строим todayLog
-      final todaySymptoms = <String, dynamic>{};
-      for (final s in symptoms) {
-        final date = (s['date'] as Timestamp?)?.toDate();
-        if (date != null && _isToday(date)) {
-          todaySymptoms[s['name'] as String? ?? ''] = s['severity'] ?? 1;
-        }
-      }
-
       final todayMeals = meals.where((m) {
         final date = (m['date'] as Timestamp?)?.toDate();
         return date != null && _isToday(date);
       }).toList();
 
-      double todayProtein = todayMeals.fold(0.0, (sum, m) => sum + ((m['protein'] as num?)?.toDouble() ?? 0));
+      final todaySymptoms = symptoms.where((s) {
+        final date = (s['date'] as Timestamp?)?.toDate();
+        return date != null && _isToday(date);
+      }).toList();
 
-      final todayLog = {
-        'date': DateTime.now().toIso8601String(),
-        'symptoms': todaySymptoms,
-        'mood': _aiData?['mood'] ?? 'Okay',
-        'meals': _toJson(todayMeals),
-        'total_protein': todayProtein,
-      };
-
-      // Строим историю за 7 дней
-      final history = <Map<String, dynamic>>[];
-      for (int i = 1; i <= 7; i++) {
-        final day = DateTime.now().subtract(Duration(days: i));
-        final daySymptoms = <String, dynamic>{};
-        for (final s in symptoms) {
-          final date = (s['date'] as Timestamp?)?.toDate();
-          if (date != null && _isSameDay(date, day)) {
-            daySymptoms[s['name'] as String? ?? ''] = s['severity'] ?? 1;
+      // симптомы высокие если avg severity > 3
+      bool symptomsHigh = false;
+      if (todaySymptoms.isNotEmpty) {
+        final allSeverities = <int>[];
+        for (final s in todaySymptoms) {
+          final syms = s['symptoms'] as Map<String, dynamic>? ?? {};
+          for (final v in syms.values) {
+            allSeverities.add((v as num).toInt());
           }
         }
-        final dayMeals = meals.where((m) {
-          final date = (m['date'] as Timestamp?)?.toDate();
-          return date != null && _isSameDay(date, day);
-        }).toList();
-
-        history.add({
-          'date': day.toIso8601String(),
-          'symptoms': daySymptoms,
-          'mood': 'Okay',
-          'meals': _toJson(dayMeals),
-          'total_protein': dayMeals.fold(0.0, (sum, m) => sum + ((m['protein'] as num?)?.toDouble() ?? 0)),
-        });
+        if (allSeverities.isNotEmpty) {
+          final avg = allSeverities.reduce((a, b) => a + b) / allSeverities.length;
+          symptomsHigh = avg > 3;
+        }
       }
 
-      final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/recovery-score'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'today': todayLog, 'history': history}),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        setState(() {
-          _recoveryScore = (data['score'] as num).toInt();
-          _recoveryDelta = (data['delta'] as num?)?.toDouble();
-          _recoveryTrend = (data['trend'] as num?)?.toDouble();
-          _recoveryLabel = data['label'] as String? ?? '';
-        });
-      }
+      setState(() {
+        _todayHasFood      = todayMeals.isNotEmpty;
+        _todayHasSymptoms  = todaySymptoms.isNotEmpty;
+        _todaySymptomsHigh = symptomsHigh;
+      });
     } catch (e) {
-      debugPrint('Score error: $e');
+      debugPrint('Motivation card error: $e');
     } finally {
-      setState(() => _scoreLoading = false);
+      setState(() => _cardLoading = false);
     }
   }
 
@@ -155,6 +134,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const months = ['January','February','March','April','May','June','July',
         'August','September','October','November','December'];
     return '${days[n.weekday - 1]}, ${months[n.month - 1]} ${n.day}';
+  }
+
+  // логика фразы для карточки
+  String get _motivationPhrase {
+    if (_todaySymptomsHigh) {
+      return 'Your doctor is aware. Take care of yourself today 💙';
+    }
+    if (_todayHasFood && _todayHasSymptoms) {
+      return 'Great day — you logged everything. Keep it up!';
+    }
+    if (_todayHasFood && !_todayHasSymptoms) {
+      return 'Don\'t forget to log how you feel today';
+    }
+    return 'How are you feeling today?';
+  }
+
+  String? get _rehabDaysText {
+    if (_surgeryDate == null) return null;
+    final days = DateTime.now().difference(_surgeryDate!).inDays;
+    if (days < 0) return null;
+    return 'Rehabilitation day $days';
   }
 
   Future<void> _analyzeRecovery() async {
@@ -187,7 +187,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final data = jsonDecode(response.body);
         if (data['error'] != null) {
           debugPrint('AI returned error: ${data['raw']}');
-          return; // не обновляем стейт
+          return;
         }
         setState(() => _aiData = data);
       }
@@ -210,8 +210,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             delegate: SliverChildListDelegate([
               _buildHeader(),
               const SizedBox(height: 24),
-              _buildRecoveryTracker(),
+              _buildMotivationCard(),
+              if (_doctorMessage != null) ...[
+                const SizedBox(height: 16),
+                _buildDoctorMessage(),
+              ],
               const SizedBox(height: 24),
+              _buildHealthStatus(),
               _buildHealthStatus(),
               const SizedBox(height: 24),
               _buildAIInsights(),
@@ -236,7 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hello, ${_fullName?.split(' ')[0] ?? 'there'}!',
+              Text('Hello, ${_fullName?.split(' ')[0] ?? ''}!',
                   style: Theme.of(context).textTheme.displayLarge),
               const SizedBox(height: 4),
               Text(_todayLabel, style: Theme.of(context).textTheme.bodyMedium),
@@ -248,25 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ],
   );
 
-  Widget _buildRecoveryTracker() {
-    // Delta badge: показываем тренд если нет дельты
-    final hasDelta = _recoveryDelta != null;
-    final deltaValue = hasDelta ? _recoveryDelta! : (_recoveryTrend ?? 0);
-    final deltaPositive = deltaValue >= 0;
-    final deltaText = hasDelta
-        ? '${deltaPositive ? '+' : ''}${deltaValue.toStringAsFixed(1)}% today'
-        : '${deltaPositive ? '+' : ''}${deltaValue.toStringAsFixed(1)} trend';
-
-    // Message по label
-    final messageMap = {
-      'Excellent': 'Outstanding progress! Keep up the excellent work.',
-      'Good':      'Your recovery is on track. Keep focusing on nutrition and rest.',
-      'Fair':      'Moderate progress. Try to log meals and stay consistent.',
-      'Poor':      'Let\'s work on improving your routine today.',
-    };
-    final message = messageMap[_recoveryLabel] ??
-        'Your recovery is 12% faster than last week. Keep focusing on your nutrition and symptoms.';
-
+  Widget _buildMotivationCard() {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
@@ -280,52 +267,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Recovery Score',
-                  style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
-              if (!_scoreLoading)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                  child: Text(deltaText,
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _scoreLoading
-                  ? const SizedBox(
-                      width: 64, height: 64,
-                      child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                  : Text('$_recoveryScore',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 64,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -2)),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12, left: 2),
-                child: Text('%',
-                    style: TextStyle(color: Colors.white70, fontSize: 24, fontWeight: FontWeight.w600)),
+      child: _cardLoading
+          ? const Center(
+              child: SizedBox(
+                width: 24, height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               ),
-              const Spacer(),
-              SizedBox(width: 100, height: 40, child: _MiniChart()),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(message,
-              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
-        ],
-      ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // иконка сердца
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(CupertinoIcons.heart_fill, color: Colors.white, size: 22),
+                ),
+                const SizedBox(height: 20),
+                // имя
+                Text(
+                  _fullName?.split(' ')[0] ?? '',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // фраза
+                Text(
+                  _motivationPhrase,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                if (_rehabDaysText != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _rehabDaysText!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 
@@ -341,7 +344,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const SizedBox(width: 16),
       Expanded(child: _HealthCard(
         label: 'Diagnosis',
-        value: _diagnosis ?? 'Stroke Reh.',
+        value: _diagnosis ?? '—',
         icon: CupertinoIcons.heart_fill,
         color: const Color(0xFFF43F5E),
         onTap: () {},
@@ -354,7 +357,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final riskColor = risk == 'high'
         ? AppColors.accent
         : risk == 'medium' ? Colors.orange : Colors.green;
-        
 
     return Container(
       decoration: BoxDecoration(
@@ -454,15 +456,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
     crossAxisSpacing: 16,
     childAspectRatio: 1.5,
     children: [
-      _ActionCard(icon: CupertinoIcons.add,              label: 'Log Meal',      color: const Color(0xFF10B981).withOpacity(0.1), iconColor: const Color(0xFF10B981), onTap: () => _go(2)),
-      _ActionCard(icon: CupertinoIcons.waveform_path_ecg, label: 'Log Symptom', color: const Color(0xFF6366F1).withOpacity(0.1), iconColor: const Color(0xFF6366F1), onTap: () => _go(3)),
-      _ActionCard(icon: CupertinoIcons.bell,             label: 'Add Reminder',  color: const Color(0xFFF59E0B).withOpacity(0.1), iconColor: const Color(0xFFF59E0B), onTap: () => _go(1)),
-      _ActionCard(icon: CupertinoIcons.chart_bar_square, label: 'View Trends',   color: const Color(0xFFEC4899).withOpacity(0.1), iconColor: const Color(0xFFEC4899), onTap: () => _go(3)),
+      _ActionCard(icon: CupertinoIcons.add,               label: 'Log Meal',     color: const Color(0xFF10B981).withOpacity(0.1), iconColor: const Color(0xFF10B981), onTap: () => _go(2)),
+      _ActionCard(icon: CupertinoIcons.waveform_path_ecg, label: 'Log Symptom',  color: const Color(0xFF6366F1).withOpacity(0.1), iconColor: const Color(0xFF6366F1), onTap: () => _go(3)),
+      _ActionCard(icon: CupertinoIcons.bell,              label: 'Add Reminder', color: const Color(0xFFF59E0B).withOpacity(0.1), iconColor: const Color(0xFFF59E0B), onTap: () => _go(1)),
+      _ActionCard(icon: CupertinoIcons.chart_bar_square,  label: 'View Trends',  color: const Color(0xFFEC4899).withOpacity(0.1), iconColor: const Color(0xFFEC4899), onTap: () => _go(3)),
     ],
+  );
+
+  Widget _buildDoctorMessage() => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(CupertinoIcons.person_fill, color: AppColors.primary, size: 16),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Message from your doctor',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+              const SizedBox(height: 4),
+              Text(_doctorMessage!,
+                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4)),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }
 
-// ── Components (без изменений) ────────────────────────────────────────────────
+// ── Components ────────────────────────────────────────────────────────────────
 
 class _HealthCard extends StatelessWidget {
   final String label, value;
@@ -580,18 +617,6 @@ class _CircleIconButton extends StatelessWidget {
       child: Icon(icon, color: AppColors.textPrimary, size: 20),
     ),
   );
-}
-
-class _MiniChart extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [_bar(15), _bar(25), _bar(20), _bar(35), _bar(30), _bar(40)],
-  );
-  Widget _bar(double h) => Container(
-    width: 4, height: h,
-    decoration: BoxDecoration(color: Colors.white.withOpacity(0.4), borderRadius: BorderRadius.circular(2)));
 }
 
 class _BouncingWrapper extends StatefulWidget {

@@ -23,7 +23,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadAll();
   }
 
@@ -88,6 +88,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
             Tab(text: 'Symptoms'),
             Tab(text: 'Nutrition'),
             Tab(text: 'Reminders'),
+            Tab(text: 'Message'),
           ],
         ),
       ),
@@ -99,6 +100,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                 _SymptomsTab(logs: _symptoms),
                 _FoodTab(meals: _meals),
                 _RemindersTab(reminders: _reminders),
+                _MessageTab(patientId: widget.patient['id'] as String),
               ],
             ),
     );
@@ -947,6 +949,99 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
       ]),
+    );
+  }
+}
+
+class _MessageTab extends StatefulWidget {
+  final String patientId;
+  const _MessageTab({required this.patientId});
+
+  @override
+  State<_MessageTab> createState() => _MessageTabState();
+}
+
+class _MessageTabState extends State<_MessageTab> {
+  final _controller = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _sending = true);
+    await FirestoreService.sendMessageToPatient(widget.patientId, text);
+    _controller.clear();
+    if (mounted) setState(() => _sending = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message sent')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Send a message to your patient',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'e.g. Great progress this week! Keep it up.',
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _sending ? null : _send,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _sending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Send',
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

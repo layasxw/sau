@@ -372,4 +372,33 @@ class FirestoreService {
       'assignedDoctorName': FieldValue.delete(),
     });
   }
+
+  // ── Messages (doctor → patient) ───────────────────────────────────────────
+
+  static Future<void> sendMessageToPatient(String patientId, String message) async {
+    await _db
+        .collection('users')
+        .doc(patientId)
+        .collection('messages')
+        .add({
+      'text': message,
+      'fromDoctorId': _uid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'read': false,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyMessages() async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('messages')
+        .orderBy('createdAt', descending: true)
+        .get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+  }
 }
