@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:rehab_assist/screens/patient_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
@@ -14,8 +15,8 @@ class DoctorScreen extends StatefulWidget {
 class _DoctorScreenState extends State<DoctorScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    _PatientsTab(),
+  final List<Widget> _pages =  [
+    _PatientsTab(), 
     _AlertsTab(),
     _ProfileTab(),
   ];
@@ -193,7 +194,6 @@ class _PatientCard extends StatelessWidget {
   final Map<String, dynamic> patient;
   final VoidCallback onRefresh;
   const _PatientCard({required this.patient, required this.onRefresh});
-
   @override
   Widget build(BuildContext context) {
     final symptoms = patient['recentSymptoms'] as List? ?? [];
@@ -208,7 +208,11 @@ class _PatientCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // TODO: переход на страницу пациента с табами
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PatientDetailScreen(patient: patient),
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -463,7 +467,7 @@ class _ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<_ProfileTab> {
   String? _inviteCode;
-  bool _loading = true;
+  bool _loading = false;
   bool _codeCopied = false;
 
   @override
