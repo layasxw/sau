@@ -98,14 +98,14 @@ class AppTheme {
         ),
         // Subhead (e.g. Captions)
         bodyMedium: GoogleFonts.inter(
-          fontSize: 13,
+          fontSize: 15,  // was 13 — bumped for 40-60 readability
           fontWeight: FontWeight.w500,
           letterSpacing: 0.0,
           color: AppColors.textSecondary,
         ),
         // Label (Upper case metadata)
         labelSmall: GoogleFonts.inter(
-          fontSize: 11,
+          fontSize: 13,  // was 11
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
           color: AppColors.textSecondary,
@@ -138,4 +138,3 @@ class AppTheme {
     );
   }
 }
-

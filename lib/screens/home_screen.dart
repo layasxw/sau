@@ -139,7 +139,7 @@ class _BottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64, 
+          height: 76,  // was 64 — taller tap targets for 40-60
           child: Row(
             children: List.generate(tabs.length, (i) {
               final sel = i == selectedIndex;
@@ -152,14 +152,14 @@ class _BottomNav extends StatelessWidget {
                     children: [
                       Icon(
                         sel ? tabs[i].activeIcon : tabs[i].icon,
-                        size: 26,
+                        size: 30,  // was 26
                         color: sel ? AppColors.primary : AppColors.textSecondary,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         tabs[i].label,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 13,  // was 11
                           fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                           color: sel ? AppColors.primary : AppColors.textSecondary,
                           letterSpacing: 0.2,
@@ -182,4 +182,3 @@ class _Tab {
   final String label;
   const _Tab(this.icon, this.activeIcon, this.label);
 }
-
