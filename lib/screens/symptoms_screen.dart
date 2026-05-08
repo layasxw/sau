@@ -40,10 +40,24 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
   bool _list = true;
   List<_Log> _logs = [];
 
+  // ── Speech fields ──────────────────────────────────────────────────────────
+  final _speech = stt.SpeechToText();
+  bool _isListening = false;
+  html.SpeechRecognition? _webRecognition;
+  StreamSubscription? _srResult;
+  StreamSubscription? _srError;
+  StreamSubscription? _srEnd;
+
   @override
   void initState() {
     super.initState();
     _loadSymptoms();
+  }
+
+  @override
+  void dispose() {
+    _cancelWebSpeech();
+    super.dispose();
   }
 
   Future<void> _loadSymptoms() async {
@@ -64,6 +78,107 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
     });
   }
 
+  // ── Web speech ─────────────────────────────────────────────────────────────
+  void _cancelWebSpeech() {
+    _srResult?.cancel();
+    _srError?.cancel();
+    _srEnd?.cancel();
+    _srResult = null;
+    _srError = null;
+    _srEnd = null;
+    _webRecognition?.stop();
+    _webRecognition = null;
+  }
+
+  void _startWebRecognition(TextEditingController controller) {
+    if (!_isListening || !mounted) return;
+    _cancelWebSpeech();
+
+    final r = html.SpeechRecognition();
+    r.lang = 'ru-RU';
+    r.interimResults = false;
+    r.continuous = false;
+    _webRecognition = r;
+
+    _srResult = r.onResult.listen((event) {
+      final results = event.results;
+      if (results == null || results.length == 0) return;
+      final last = results[results.length - 1];
+      if (last == null || last.isFinal != true) return;
+      final t = last.item(0)?.transcript?.trim() ?? '';
+      if (t.isEmpty) return;
+      final cur = controller.text.trim();
+      setState(() {
+        controller.text = cur.isEmpty ? t : '$cur $t';
+      });
+    });
+
+    _srError = r.onError.listen((_) {
+      if (!mounted) return;
+      _cancelWebSpeech();
+      setState(() => _isListening = false);
+    });
+
+    _srEnd = r.onEnd.listen((_) {
+      if (!mounted || !_isListening) return;
+      Future.delayed(const Duration(milliseconds: 150),
+          () => _startWebRecognition(controller));
+    });
+
+    try {
+      r.start();
+    } catch (e) {
+      debugPrint('Recognition start error: $e');
+      _cancelWebSpeech();
+      setState(() => _isListening = false);
+    }
+  }
+
+  Future<void> _listen() async {
+    // ── Web ──────────────────────────────────────────────────────────────────
+    if (kIsWeb) {
+      if (_isListening) {
+        _cancelWebSpeech();
+        setState(() => _isListening = false);
+        return;
+      }
+      
+      _showSheet();
+      return;
+    }
+
+    // ── Native ────────────────────────────────────────────────────────────────
+    if (!_isListening) {
+      final available = await _speech.initialize(
+        onError: (error) {
+          debugPrint('Speech error: $error');
+          if (mounted) setState(() => _isListening = false);
+        },
+        onStatus: (status) {
+          debugPrint('Speech status: $status');
+          if (status == 'done' || status == 'notListening') {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _showSheet();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content:
+                    Text('Микрофон недоступен. Разрешите доступ в браузере.')),
+          );
+        }
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
   void _showSheet() => showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -80,67 +195,85 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
               });
               _loadSymptoms();
             }),
-      );
+      ).then((_) {
+        // Reset listening state when sheet closes
+        if (mounted) setState(() => _isListening = false);
+      });
 
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom + 100;
 
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              Text('Symptom Tracking',
-                  style: Theme.of(context).textTheme.displayLarge),
-              const SizedBox(height: 4),
-              Text(
-                  'Monitor your daily symptoms and track your recovery progress',
-                  style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 24),
-              Row(children: [
-                _Toggle(
-                    showList: _list,
-                    onChanged: (v) => setState(() => _list = v)),
-                const Spacer(),
-                _BouncingWrapper(
-                    onTap: _showSheet,
-                    child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 12),
-                        decoration: BoxDecoration(
-                            gradient: AppGradients.primary,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4))
-                            ]),
-                        child: const Row(children: [
-                          Icon(CupertinoIcons.add,
-                              size: 16, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text('Check-in',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700)),
-                        ]))),
-              ]),
-              const SizedBox(height: 24),
-              if (_logs.isEmpty)
-                _empty()
-              else if (_list)
-                ..._logs.map((l) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _LogCard(log: l)))
-              else
-                _chart(),
-              const SizedBox(height: 40),
-            ]),
+    return Stack(
+      children: [
+        // ── Main scroll content ──────────────────────────────────────────────
+        CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  Text('Symptom Tracking',
+                      style: Theme.of(context).textTheme.displayLarge),
+                  const SizedBox(height: 4),
+                  Text(
+                      'Monitor your daily symptoms and track your recovery progress',
+                      style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 24),
+                  Row(children: [
+                    _Toggle(
+                        showList: _list,
+                        onChanged: (v) => setState(() => _list = v)),
+                    const Spacer(),
+                    _BouncingWrapper(
+                        onTap: _showSheet,
+                        child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 12),
+                            decoration: BoxDecoration(
+                                gradient: AppGradients.primary,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: AppColors.primary.withOpacity(0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4))
+                                ]),
+                            child: const Row(children: [
+                              Icon(CupertinoIcons.add,
+                                  size: 16, color: Colors.white),
+                              SizedBox(width: 6),
+                              Text('Check-in',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700)),
+                            ]))),
+                  ]),
+                  const SizedBox(height: 24),
+                  if (_logs.isEmpty)
+                    _empty()
+                  else if (_list)
+                    ..._logs.map((l) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _LogCard(log: l)))
+                  else
+                    _chart(),
+                  const SizedBox(height: 40),
+                ]),
+              ),
+            ),
+          ],
+        ),
+
+        // ── Floating mic button ──────────────────────────────────────────────
+        Positioned(
+          bottom: MediaQuery.of(context).padding.bottom + 110,
+          right: 24,
+          child: _MicFab(
+            isListening: _isListening,
+            onTap: _listen,
           ),
         ),
       ],
@@ -249,6 +382,125 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
       ]);
 }
 
+// ── Floating Mic FAB ───────────────────────────────────────────────────────────
+class _MicFab extends StatefulWidget {
+  final bool isListening;
+  final VoidCallback onTap;
+  const _MicFab({required this.isListening, required this.onTap});
+
+  @override
+  State<_MicFab> createState() => _MicFabState();
+}
+
+class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
+  late AnimationController _pulse;
+  late Animation<double> _scale;
+  late Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 1.65).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeOut),
+    );
+    _opacity = Tween<double>(begin: 0.4, end: 0.0).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_MicFab old) {
+    super.didUpdateWidget(old);
+    if (widget.isListening && !old.isListening) {
+      _pulse.repeat();
+    } else if (!widget.isListening && old.isListening) {
+      _pulse.stop();
+      _pulse.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        widget.onTap();
+        HapticFeedback.mediumImpact();
+      },
+      child: SizedBox(
+        width: 72,
+        height: 72,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Pulsing ring
+            if (widget.isListening)
+              AnimatedBuilder(
+                animation: _pulse,
+                builder: (_, __) => Transform.scale(
+                  scale: _scale.value,
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accent.withOpacity(_opacity.value),
+                    ),
+                  ),
+                ),
+              ),
+            // Main button
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: widget.isListening
+                    ? LinearGradient(
+                        colors: [
+                          AppColors.accent,
+                          AppColors.accent.withOpacity(0.75),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : AppGradients.primary,
+                boxShadow: [
+                  BoxShadow(
+                    color: (widget.isListening
+                            ? AppColors.accent
+                            : AppColors.primary)
+                        .withOpacity(0.38),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(
+                widget.isListening
+                    ? CupertinoIcons.mic_solid
+                    : CupertinoIcons.mic,
+                size: 26,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Log Card ──────────────────────────────────────────────────────────────────
 class _LogCard extends StatelessWidget {
   final _Log log;
   const _LogCard({required this.log});
@@ -486,7 +738,6 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     super.dispose();
   }
 
-  // ── Cancel all web speech subscriptions and stop recognition ───────────────
   void _cancelWebSpeech() {
     _srResult?.cancel();
     _srError?.cancel();
@@ -498,23 +749,20 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     _webRecognition = null;
   }
 
-  // ── Start a fresh web speech session ──────────────────────────────────────
   void _startWebRecognition() {
     if (!_isListening || !mounted) return;
 
-    // Cancel previous subscriptions BEFORE creating a new object
     _cancelWebSpeech();
 
     final r = html.SpeechRecognition();
     r.lang = 'ru-RU';
-    r.interimResults = false; // only final results — no duplicates
-    r.continuous = false; // one phrase per session — browser decides end
+    r.interimResults = false;
+    r.continuous = false;
     _webRecognition = r;
 
     _srResult = r.onResult.listen((event) {
       final results = event.results;
       if (results == null || results.length == 0) return;
-      // Take only the last (and only) result of this session
       final last = results[results.length - 1];
       if (last == null || last.isFinal != true) return;
       final t = last.item(0)?.transcript?.trim() ?? '';
@@ -533,7 +781,6 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
     _srEnd = r.onEnd.listen((_) {
       if (!mounted || !_isListening) return;
-      // Restart a new clean session after a short delay
       Future.delayed(const Duration(milliseconds: 150), _startWebRecognition);
     });
 
@@ -1227,6 +1474,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       ]);
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 class _HBPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

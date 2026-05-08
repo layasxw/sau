@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../theme/app_theme.dart';
 import './onboarding/onboarding_data.dart';
 import '../services/firestore_service.dart';
@@ -532,6 +534,12 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   FoodProduct? _selected;
   String _searchQuery = '';
 
+  // ── Photo recognition state ──
+  bool _photoLoading = false;
+  String? _photoError;
+  // AI fallback data when dish not in foodDatabase
+  Map<String, dynamic>? _aiFoodData;
+
   static const _types = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
   List<FoodProduct> get _filtered {
@@ -542,16 +550,37 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   }
 
   double get _gramsValue => double.tryParse(_gramsController.text) ?? 100;
-  double get _calcCalories => (_selected?.caloriesPer100g ?? 0) * _gramsValue / 100;
-  double get _calcProtein => (_selected?.proteinPer100g ?? 0) * _gramsValue / 100;
-  double get _calcCarbs => (_selected?.carbsPer100g ?? 0) * _gramsValue / 100;
-  double get _calcFat => (_selected?.fatPer100g ?? 0) * _gramsValue / 100;
+
+  // If a DB product is selected — use its data; otherwise use AI fallback data
+  double get _calcCalories {
+    if (_selected != null) return (_selected!.caloriesPer100g) * _gramsValue / 100;
+    if (_aiFoodData != null) return ((_aiFoodData!['calories_per_100g'] as num?)?.toDouble() ?? 0) * _gramsValue / 100;
+    return 0;
+  }
+  double get _calcProtein {
+    if (_selected != null) return (_selected!.proteinPer100g) * _gramsValue / 100;
+    if (_aiFoodData != null) return ((_aiFoodData!['protein_per_100g'] as num?)?.toDouble() ?? 0) * _gramsValue / 100;
+    return 0;
+  }
+  double get _calcCarbs {
+    if (_selected != null) return (_selected!.carbsPer100g) * _gramsValue / 100;
+    if (_aiFoodData != null) return ((_aiFoodData!['carbs_per_100g'] as num?)?.toDouble() ?? 0) * _gramsValue / 100;
+    return 0;
+  }
+  double get _calcFat {
+    if (_selected != null) return (_selected!.fatPer100g) * _gramsValue / 100;
+    if (_aiFoodData != null) return ((_aiFoodData!['fat_per_100g'] as num?)?.toDouble() ?? 0) * _gramsValue / 100;
+    return 0;
+  }
+
+  bool get _canSave => _selected != null || _aiFoodData != null;
+  String get _saveName => _selected?.name ?? (_aiFoodData?['name'] as String? ?? '');
 
   void _onSave() {
-    if (_selected == null) return;
+    if (!_canSave) return;
     widget.onAdd(_Meal(
       id: '',
-      name: _selected!.name,
+      name: _saveName,
       type: _mealType,
       calories: _calcCalories.round(),
       protein: _calcProtein,
@@ -560,6 +589,113 @@ class _AddMealSheetState extends State<_AddMealSheet> {
       date: widget.date,
     ));
     Navigator.pop(context);
+  }
+
+  // ── Photo recognition ────────────────────────────────────────────────────
+  Future<void> _pickAndRecognize(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _photoLoading = true;
+      _photoError = null;
+      _aiFoodData = null;
+    });
+
+    try {
+      final bytes = await File(picked.path).readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      final response = await http.post(
+        Uri.parse('https://sau-production.up.railway.app/recognize-food'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'image': base64Image}),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final recognizedName = (data['name'] as String? ?? '').toLowerCase();
+
+        // Try to find in foodDatabase first (case-insensitive partial match)
+        final match = foodDatabase.where((f) =>
+          f.name.toLowerCase().contains(recognizedName) ||
+          recognizedName.contains(f.name.toLowerCase().split(' ').first)
+        ).firstOrNull;
+
+        setState(() {
+          if (match != null) {
+            // Found in DB — select it and autofill search
+            _selected = match;
+            _aiFoodData = null;
+            _searchController.text = match.name;
+            _searchQuery = match.name;
+          } else {
+            // Not in DB — use AI data directly as fallback
+            _selected = null;
+            _aiFoodData = data;
+            _searchController.text = data['name'] as String? ?? '';
+            _searchQuery = data['name'] as String? ?? '';
+          }
+        });
+      } else {
+        setState(() => _photoError = 'Could not recognize food. Try another photo.');
+      }
+    } catch (e) {
+      setState(() => _photoError = 'Recognition failed. Check your connection.');
+    } finally {
+      setState(() => _photoLoading = false);
+    }
+  }
+
+  void _showPhotoOptions() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        title: const Text('Add Photo'),
+        message: const Text('Take a photo or choose from gallery to recognize food'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickAndRecognize(ImageSource.camera);
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.camera, size: 20),
+                SizedBox(width: 10),
+                Text('Take Photo'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickAndRecognize(ImageSource.gallery);
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.photo, size: 20),
+                SizedBox(width: 10),
+                Text('Choose from Gallery'),
+              ],
+            ),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
   }
 
   @override
@@ -638,26 +774,140 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                     ),
                     const SizedBox(height: 24),
 
+                    // ── Search + Camera row ──────────────────────────────────
                     const Text('Search Food', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                      style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: 'e.g. chicken, rice, soup...',
-                        hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                        prefixIcon: const Icon(CupertinoIcons.search, size: 18, color: AppColors.textSecondary),
-                        filled: true,
-                        fillColor: AppColors.background,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (v) => setState(() {
+                              _searchQuery = v;
+                              // Clear AI fallback if user types manually
+                              if (_aiFoodData != null && v != _aiFoodData!['name']) {
+                                _aiFoodData = null;
+                              }
+                            }),
+                            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. манты, плов, chicken...',
+                              hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                              prefixIcon: const Icon(CupertinoIcons.search, size: 18, color: AppColors.textSecondary),
+                              filled: true,
+                              fillColor: AppColors.background,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // ── Camera button ──
+                        _BouncingWrapper(
+                          onTap: _photoLoading ? null : _showPhotoOptions,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              gradient: _photoLoading ? null : AppGradients.primary,
+                              color: _photoLoading ? AppColors.divider : null,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: _photoLoading ? null : [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: _photoLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                  ),
+                                )
+                              : const Icon(CupertinoIcons.camera_fill, color: Colors.white, size: 22),
+                          ),
+                        ),
+                      ],
                     ),
+
+                    // ── Loading / error / AI result banner ──────────────────
+                    if (_photoLoading) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                        ),
+                        child: const Row(children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                          SizedBox(width: 12),
+                          Text('Analyzing food photo...', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                        ]),
+                      ),
+                    ],
+
+                    if (_photoError != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+                        ),
+                        child: Row(children: [
+                          const Icon(CupertinoIcons.exclamationmark_circle, size: 16, color: AppColors.accent),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(_photoError!, style: const TextStyle(fontSize: 13, color: AppColors.accent, fontWeight: FontWeight.w500))),
+                        ]),
+                      ),
+                    ],
+
+                    // AI fallback banner — shown when dish recognized but not in DB
+                    if (_aiFoodData != null && _selected == null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.07),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
+                        ),
+                        child: Row(children: [
+                          const Icon(CupertinoIcons.sparkles, size: 16, color: Color(0xFF10B981)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'AI recognized: ${_aiFoodData!['name']}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Using AI nutrition data (not in local database)',
+                                  style: TextStyle(fontSize: 11, color: const Color(0xFF10B981).withOpacity(0.8)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
 
+                    // ── Food list ────────────────────────────────────────────
                     Container(
                       constraints: const BoxConstraints(maxHeight: 220),
                       decoration: BoxDecoration(
@@ -672,7 +922,10 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                           final food = _filtered[i];
                           final isSelected = _selected?.name == food.name;
                           return GestureDetector(
-                            onTap: () => setState(() => _selected = food),
+                            onTap: () => setState(() {
+                              _selected = food;
+                              _aiFoodData = null; // dismiss AI fallback on manual pick
+                            }),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -708,7 +961,8 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                     ),
                     const SizedBox(height: 24),
 
-                    if (_selected != null) ...[
+                    // ── Portion + preview — show if selected OR AI fallback ──
+                    if (_canSave) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -766,13 +1020,13 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                 border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
               ),
               child: _BouncingWrapper(
-                onTap: _selected == null ? null : _onSave,
+                onTap: _canSave ? _onSave : null,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: _selected != null ? AppGradients.primary : null,
-                    color: _selected == null ? AppColors.divider : null,
+                    gradient: _canSave ? AppGradients.primary : null,
+                    color: _canSave ? null : AppColors.divider,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(

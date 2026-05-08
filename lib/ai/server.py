@@ -6,6 +6,7 @@ from typing import Optional, List, Dict
 from dotenv import load_dotenv
 import json
 import os
+import base64
 
 load_dotenv()
 
@@ -52,7 +53,91 @@ def safe_json_parse(raw: str):
         return {"error": "Invalid AI response", "raw": clean}
 
 
-# ── Symptom Extraction ────────────────────────────────────────────────────────
+# ── Food Photo Recognition ─────────────────────────────────────────────────────
+
+class FoodRecognitionRequest(BaseModel):
+    image: str  # base64-encoded image (JPEG/PNG)
+
+@app.post("/recognize-food")
+def recognize_food(request: FoodRecognitionRequest):
+    """
+    Accepts a base64 image, returns recognized food name + nutrition per 100g.
+    Uses Groq LLaMA-4 Vision as primary, falls back to LLaMA-3.2 Vision if needed.
+    """
+    # Validate base64 and detect mime type from magic bytes
+    try:
+        img_bytes = base64.b64decode(request.image)
+        if img_bytes[:4] == b'\x89PNG':
+            mime_type = "image/png"
+        else:
+            mime_type = "image/jpeg"
+        image_url = f"data:{mime_type};base64,{request.image}"
+    except Exception:
+        return {"error": "Invalid image data"}
+
+    system_prompt = """You are a food recognition expert specializing in Central Asian cuisine (Kazakh, Uzbek, Kyrgyz, Tajik, Turkmen) as well as international dishes.
+
+Analyze the food in the image and return ONLY a JSON object with NO extra text:
+{
+  "name": "dish name in English (use common transliteration for Central Asian dishes, e.g. Beshbarmak, Plov, Manty)",
+  "name_ru": "название блюда на русском",
+  "confidence": 0.0 to 1.0,
+  "calories_per_100g": number,
+  "protein_per_100g": number,
+  "carbs_per_100g": number,
+  "fat_per_100g": number,
+  "category": "one of: Казахская кухня / ЦА кухня / Protein / Grains / Vegetables / Fruits / Dairy / Soups / Fast food / Other"
+}
+
+Nutrition values must be realistic per 100g of the dish as typically prepared.
+If you cannot identify any food in the image, return: {"error": "No food detected", "confidence": 0.0}
+Never return markdown, never explain, only JSON."""
+
+    # Try llama-4-scout first (best vision), fall back to llama-3.2-11b-vision
+    models_to_try = [
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "llama-3.2-11b-vision-preview",
+    ]
+
+    for model in models_to_try:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                max_tokens=300,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": image_url},
+                            },
+                            {
+                                "type": "text",
+                                "text": system_prompt,
+                            },
+                        ],
+                    }
+                ],
+            )
+            result = safe_json_parse(response.choices[0].message.content)
+
+            # If we got a valid food result — return it
+            if "name" in result and "error" not in result:
+                return result
+
+            # If model said no food detected — still return that (don't retry)
+            if result.get("error") == "No food detected":
+                return result
+
+        except Exception as e:
+            # Model unavailable or rate limited — try next
+            continue
+
+    return {"error": "Recognition failed. Please try another photo."}
+
+
+# ── Symptoms ───────────────────────────────────────────────────────────────────
 
 class SymptomRequest(BaseModel):
     text: str
@@ -77,7 +162,7 @@ Always respond in English regardless of input language."""},
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Symptom Analysis ──────────────────────────────────────────────────────────
+# ── Symptom Analysis ───────────────────────────────────────────────────────────
 
 class SymptomAnalysisRequest(BaseModel):
     symptoms: Dict[str, int]
@@ -126,7 +211,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── AI Recovery Advisor ───────────────────────────────────────────────────────
+# ── Recovery Advisor ───────────────────────────────────────────────────────────
 
 class AdvisorRequest(BaseModel):
     profile: Optional[dict] = None
@@ -164,7 +249,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Meal Analysis ─────────────────────────────────────────────────────────────
+# ── Meal Analysis ──────────────────────────────────────────────────────────────
 
 class MealAnalysisRequest(BaseModel):
     meals: list
@@ -209,7 +294,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Suggest Reminders ─────────────────────────────────────────────────────────
+# ── Reminder Suggestions ───────────────────────────────────────────────────────
 
 class ReminderSuggestionRequest(BaseModel):
     symptoms: Optional[Dict[str, int]] = None
@@ -251,7 +336,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Recovery Score ────────────────────────────────────────────────────────────
+# ── Recovery Score ─────────────────────────────────────────────────────────────
 
 class DailyLog(BaseModel):
     date: str
