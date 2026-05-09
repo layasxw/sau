@@ -19,6 +19,7 @@ class OnboardingData {
   DateTime? surgeryDate;
   String? medicalFileUrl;
   String? medicalFileName;
+  String surgicalPeriod = 'pre'; // 'pre' or 'post'
 
   // ── Step 4: Restrictions ───────────────────────────
   List<String> allergies = [];

@@ -4,7 +4,14 @@ import '../screens/onboarding/onboarding_data.dart';
 
 class FirestoreService {
   static final _db = FirebaseFirestore.instance;
-  static String get _uid => FirebaseAuth.instance.currentUser!.uid;
+
+  // ── Safe uid — never crashes if currentUser is briefly null ───────────────
+  static String? get _uidOrNull => FirebaseAuth.instance.currentUser?.uid;
+  static String get _uid {
+    final uid = _uidOrNull;
+    if (uid == null) throw Exception('FirestoreService: user not logged in');
+    return uid;
+  }
 
   // ── Onboarding ────────────────────────────────────────────────────────────
 
@@ -28,6 +35,7 @@ class FirestoreService {
         .set({
       'diagnosis': data.diagnosis,
       'medicalHistory': data.medicalHistory,
+      'surgicalPeriod': data.surgicalPeriod,
       'surgeryDate': data.surgeryDate != null
           ? Timestamp.fromDate(data.surgeryDate!)
           : null,
@@ -55,35 +63,61 @@ class FirestoreService {
   }
 
   static Future<bool> isOnboardingComplete() async {
-    final doc = await _db.collection('users').doc(_uid).get();
-    return doc.data()?['onboardingComplete'] == true;
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return doc.data()?['onboardingComplete'] == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getUserProfile() async {
-    final doc = await _db.collection('users').doc(_uid).get();
-    return doc.data();
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<Map<String, dynamic>?> getMedicalProfile() async {
-    final doc = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('medicalProfile')
-        .doc('main')
-        .get();
-    return doc.data();
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('medicalProfile')
+          .doc('main')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<Map<String, dynamic>?> getRestrictions() async {
-    final doc = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('restrictions')
-        .doc('main')
-        .get();
-    return doc.data();
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('restrictions')
+          .doc('main')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<void> updateUserProfile(Map<String, dynamic> fields) async {
@@ -101,7 +135,6 @@ class FirestoreService {
 
   // ── Role ──────────────────────────────────────────────────────────────────
 
-  /// Called on signup. Doctors get doctorStatus: 'pending' until admin verifies.
   static Future<void> saveRole(String role, {String? fullName}) async {
     final data = <String, dynamic>{
       'role': role,
@@ -111,31 +144,52 @@ class FirestoreService {
     if (role == 'doctor') data['doctorStatus'] = 'pending';
     await _db.collection('users').doc(_uid).set(data, SetOptions(merge: true));
   }
+
   static Future<String?> getRole() async {
-    final doc = await _db.collection('users').doc(_uid).get();
-    return doc.data()?['role'] as String?;
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .get()
+          .timeout(const Duration(seconds: 6));
+      return doc.data()?['role'] as String?;
+    } catch (_) {
+      return null; // timeout or error → treat as regular user
+    }
   }
 
-  /// Returns 'pending' or 'verified' for doctor accounts.
   static Future<String?> getDoctorStatus() async {
-    final doc = await _db.collection('users').doc(_uid).get();
-    return doc.data()?['doctorStatus'] as String?;
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .get()
+          .timeout(const Duration(seconds: 6));
+      return doc.data()?['doctorStatus'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   // ── Reminders ─────────────────────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getReminders() async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('reminders')
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('reminders')
+          .orderBy('createdAt', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<void> addReminder(Map<String, dynamic> data) async {
@@ -164,17 +218,22 @@ class FirestoreService {
   // ── Symptoms ──────────────────────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getSymptoms() async {
-    final logs = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('symptomLogs')
-        .orderBy('date', descending: true)
-        .get();
-    return logs.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final logs = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('symptomLogs')
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<void> saveSymptom(Map<String, dynamic> data) async {
@@ -184,17 +243,22 @@ class FirestoreService {
   // ── Meals ─────────────────────────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getMeals() async {
-    final logs = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('meals')
-        .orderBy('date', descending: true)
-        .get();
-    return logs.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final logs = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('meals')
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<void> addMeal(Map<String, dynamic> data) async {
@@ -226,129 +290,168 @@ class FirestoreService {
   }
 
   static Future<List<Map<String, dynamic>>?> getTodaySuggestedReminders() async {
-    final today = DateTime.now();
-    final dateKey =
-        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final doc = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('aiCache')
-        .doc('suggestions')
-        .get();
-    if (!doc.exists) return null;
-    final data = doc.data()!;
-    if (data['date'] != dateKey) return null;
-    return List<Map<String, dynamic>>.from(data['reminders'] ?? []);
+    try {
+      final today = DateTime.now();
+      final dateKey =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final doc = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('aiCache')
+          .doc('suggestions')
+          .get()
+          .timeout(const Duration(seconds: 6));
+      if (!doc.exists) return null;
+      final data = doc.data()!;
+      if (data['date'] != dateKey) return null;
+      return List<Map<String, dynamic>>.from(data['reminders'] ?? []);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ── Doctor: patients assigned to this doctor ──────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getAllPatients() async {
-    final snapshot = await _db
-        .collection('users')
-        .where('role', isEqualTo: 'patient')
-        .where('assignedDoctor', isEqualTo: _uid)
-        .get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .where('role', isEqualTo: 'patient')
+          .where('assignedDoctor', isEqualTo: _uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getPatientSymptoms(
       String patientId) async {
-    final logs = await _db
-        .collection('users')
-        .doc(patientId)
-        .collection('symptomLogs')
-        .orderBy('date', descending: true)
-        .limit(5)
-        .get();
-    return logs.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final logs = await _db
+          .collection('users')
+          .doc(patientId)
+          .collection('symptomLogs')
+          .orderBy('date', descending: true)
+          .limit(5)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getPatientSymptomsWeek(
       String patientId) async {
-    final since =
-        Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 7)));
-    final logs = await _db
-        .collection('users')
-        .doc(patientId)
-        .collection('symptomLogs')
-        .where('date', isGreaterThanOrEqualTo: since)
-        .orderBy('date', descending: true)
-        .get();
-    return logs.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final since =
+          Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 7)));
+      final logs = await _db
+          .collection('users')
+          .doc(patientId)
+          .collection('symptomLogs')
+          .where('date', isGreaterThanOrEqualTo: since)
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getPatientMealsWeek(
       String patientId) async {
-    final since =
-        Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 7)));
-    final logs = await _db
-        .collection('users')
-        .doc(patientId)
-        .collection('meals')
-        .where('date', isGreaterThanOrEqualTo: since)
-        .orderBy('date', descending: true)
-        .get();
-    return logs.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final since =
+          Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 7)));
+      final logs = await _db
+          .collection('users')
+          .doc(patientId)
+          .collection('meals')
+          .where('date', isGreaterThanOrEqualTo: since)
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getPatientTodayReminders(
       String patientId) async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(patientId)
-        .collection('reminders')
-        .get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .doc(patientId)
+          .collection('reminders')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   // ── Admin ─────────────────────────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> adminGetAllPatients() async {
-    final snapshot = await _db
-        .collection('users')
-        .where('role', isEqualTo: 'patient')
-        .get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .where('role', isEqualTo: 'patient')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<Map<String, dynamic>>> adminGetAllDoctors() async {
-    final snapshot = await _db
-        .collection('users')
-        .where('role', isEqualTo: 'doctor')
-        .get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .where('role', isEqualTo: 'doctor')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
-  /// Admin verifies a doctor → doctorStatus: 'verified'.
   static Future<void> adminVerifyDoctor(String doctorId) async {
     await _db
         .collection('users')
@@ -356,7 +459,6 @@ class FirestoreService {
         .update({'doctorStatus': 'verified'});
   }
 
-  /// Admin assigns a verified doctor to a patient.
   static Future<void> adminAssignDoctor(
       String patientId, String doctorId, String doctorName) async {
     await _db.collection('users').doc(patientId).update({
@@ -365,7 +467,6 @@ class FirestoreService {
     });
   }
 
-  /// Admin removes doctor assignment from a patient.
   static Future<void> adminUnassignDoctor(String patientId) async {
     await _db.collection('users').doc(patientId).update({
       'assignedDoctor': FieldValue.delete(),
@@ -375,7 +476,8 @@ class FirestoreService {
 
   // ── Messages (doctor → patient) ───────────────────────────────────────────
 
-  static Future<void> sendMessageToPatient(String patientId, String message) async {
+  static Future<void> sendMessageToPatient(
+      String patientId, String message) async {
     await _db
         .collection('users')
         .doc(patientId)
@@ -389,16 +491,21 @@ class FirestoreService {
   }
 
   static Future<List<Map<String, dynamic>>> getMyMessages() async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('messages')
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('messages')
+          .orderBy('createdAt', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 }

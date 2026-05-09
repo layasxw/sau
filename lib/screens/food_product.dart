@@ -5,6 +5,8 @@ class FoodProduct {
   final double proteinPer100g;
   final double carbsPer100g;
   final double fatPer100g;
+  final double? gramsPerUnit;
+  final String? unitLabel;
 
   FoodProduct({
     required this.name,
@@ -13,6 +15,8 @@ class FoodProduct {
     required this.proteinPer100g,
     required this.carbsPer100g,
     required this.fatPer100g,
+    this.gramsPerUnit,
+    this.unitLabel,
   });
 }
 
@@ -23,13 +27,13 @@ final List<FoodProduct> foodDatabase = [
   FoodProduct(name: 'Turkey (boiled)', category: 'Protein',
       caloriesPer100g: 135, proteinPer100g: 29, carbsPer100g: 0, fatPer100g: 1.8),
   FoodProduct(name: 'Egg (boiled)', category: 'Protein',
-      caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1.1, fatPer100g: 11),
+      caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1.1, fatPer100g: 11, gramsPerUnit: 60, unitLabel: 'шт'),
   FoodProduct(name: 'Salmon (steamed)', category: 'Protein',
       caloriesPer100g: 208, proteinPer100g: 20, carbsPer100g: 0, fatPer100g: 13),
   FoodProduct(name: 'White Fish (boiled)', category: 'Protein',
       caloriesPer100g: 96, proteinPer100g: 21, carbsPer100g: 0, fatPer100g: 1.2),
   FoodProduct(name: 'Cottage Cheese (low fat)', category: 'Protein',
-      caloriesPer100g: 72, proteinPer100g: 12, carbsPer100g: 3.4, fatPer100g: 1.0),
+      caloriesPer100g: 72, proteinPer100g: 12, carbsPer100g: 3.4, fatPer100g: 1.0, gramsPerUnit: 200, unitLabel: 'уп'),
 
   // ── Grains & Carbs ────────────────────────────────────────────────────────
   FoodProduct(name: 'White Rice (cooked)', category: 'Grains',
@@ -57,11 +61,11 @@ final List<FoodProduct> foodDatabase = [
 
   // ── Fruits ────────────────────────────────────────────────────────────────
   FoodProduct(name: 'Apple', category: 'Fruits',
-      caloriesPer100g: 52, proteinPer100g: 0.3, carbsPer100g: 14, fatPer100g: 0.2),
+      caloriesPer100g: 52, proteinPer100g: 0.3, carbsPer100g: 14, fatPer100g: 0.2, gramsPerUnit: 150, unitLabel: 'шт'),
   FoodProduct(name: 'Banana', category: 'Fruits',
-      caloriesPer100g: 89, proteinPer100g: 1.1, carbsPer100g: 23, fatPer100g: 0.3),
+      caloriesPer100g: 89, proteinPer100g: 1.1, carbsPer100g: 23, fatPer100g: 0.3, gramsPerUnit: 120, unitLabel: 'шт'),
   FoodProduct(name: 'Pear', category: 'Fruits',
-      caloriesPer100g: 57, proteinPer100g: 0.4, carbsPer100g: 15, fatPer100g: 0.1),
+      caloriesPer100g: 57, proteinPer100g: 0.4, carbsPer100g: 15, fatPer100g: 0.1, gramsPerUnit: 150, unitLabel: 'шт'),
 
   // ── Dairy ─────────────────────────────────────────────────────────────────
   FoodProduct(name: 'Yogurt (plain, low fat)', category: 'Dairy',
@@ -85,9 +89,9 @@ final List<FoodProduct> foodDatabase = [
   FoodProduct(name: 'Плов (Plov)', category: 'Казахская кухня',
       caloriesPer100g: 245, proteinPer100g: 8.5, carbsPer100g: 30, fatPer100g: 10.5),
   FoodProduct(name: 'Манты (Manty)', category: 'Казахская кухня',
-      caloriesPer100g: 195, proteinPer100g: 11, carbsPer100g: 22, fatPer100g: 7),
+      caloriesPer100g: 195, proteinPer100g: 11, carbsPer100g: 22, fatPer100g: 7, gramsPerUnit: 50, unitLabel: 'шт'),
   FoodProduct(name: 'Самса (Samsa)', category: 'Казахская кухня',
-      caloriesPer100g: 285, proteinPer100g: 10, carbsPer100g: 28, fatPer100g: 15),
+      caloriesPer100g: 285, proteinPer100g: 10, carbsPer100g: 28, fatPer100g: 15, gramsPerUnit: 100, unitLabel: 'шт'),
   FoodProduct(name: 'Лагман (Lagman)', category: 'Казахская кухня',
       caloriesPer100g: 148, proteinPer100g: 8.5, carbsPer100g: 18, fatPer100g: 5),
   FoodProduct(name: 'Шурпа (Shurpa)', category: 'Казахская кухня',
@@ -97,7 +101,7 @@ final List<FoodProduct> foodDatabase = [
   FoodProduct(name: 'Думама (Dumama)', category: 'Казахская кухня',
       caloriesPer100g: 175, proteinPer100g: 12, carbsPer100g: 14, fatPer100g: 8),
   FoodProduct(name: 'Баурсак (Baursak)', category: 'Казахская кухня',
-      caloriesPer100g: 348, proteinPer100g: 7, carbsPer100g: 48, fatPer100g: 15),
+      caloriesPer100g: 348, proteinPer100g: 7, carbsPer100g: 48, fatPer100g: 15, gramsPerUnit: 30, unitLabel: 'шт'),
   FoodProduct(name: 'Казы (Kazy)', category: 'Казахская кухня',
       caloriesPer100g: 394, proteinPer100g: 14, carbsPer100g: 0, fatPer100g: 37),
   FoodProduct(name: 'Шужык (Shuzhyk)', category: 'Казахская кухня',
@@ -107,7 +111,7 @@ final List<FoodProduct> foodDatabase = [
   FoodProduct(name: 'Нарын (Naryn)', category: 'Казахская кухня',
       caloriesPer100g: 205, proteinPer100g: 13, carbsPer100g: 16, fatPer100g: 9),
   FoodProduct(name: 'Пирожки с мясом (Meat Piroshki)', category: 'Казахская кухня',
-      caloriesPer100g: 258, proteinPer100g: 9.5, carbsPer100g: 30, fatPer100g: 11),
+      caloriesPer100g: 258, proteinPer100g: 9.5, carbsPer100g: 30, fatPer100g: 11, gramsPerUnit: 80, unitLabel: 'шт'),
 
   // Супы
   FoodProduct(name: 'Сорпа (Sorpa — lamb broth)', category: 'Казахские супы',
@@ -131,9 +135,9 @@ final List<FoodProduct> foodDatabase = [
 
   // Хлеб и выпечка
   FoodProduct(name: 'Тандырный хлеб (Tandyr nan)', category: 'Казахский хлеб',
-      caloriesPer100g: 255, proteinPer100g: 8, carbsPer100g: 50, fatPer100g: 3),
+      caloriesPer100g: 255, proteinPer100g: 8, carbsPer100g: 50, fatPer100g: 3, gramsPerUnit: 250, unitLabel: 'шт'),
   FoodProduct(name: 'Казахский хлеб (Shelpek)', category: 'Казахский хлеб',
-      caloriesPer100g: 320, proteinPer100g: 7, carbsPer100g: 44, fatPer100g: 14),
+      caloriesPer100g: 320, proteinPer100g: 7, carbsPer100g: 44, fatPer100g: 14, gramsPerUnit: 150, unitLabel: 'шт'),
 
   // Узбекские / общеца блюда
   FoodProduct(name: 'Шашлык из баранины (Lamb Shashlik)', category: 'ЦА кухня',

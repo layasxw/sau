@@ -116,16 +116,18 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
         backgroundColor: Colors.transparent,
         builder: (_) => _AddMealSheet(
             date: _date,
-            onAdd: (m) async {
-              await FirestoreService.addMeal({
-                'name': m.name,
-                'type': m.type,
-                'calories': m.calories,
-                'protein': m.protein,
-                'carbs': m.carbs,
-                'fat': m.fat,
-                'date': m.date,
-              });
+            onAdd: (ms) async {
+              for (var m in ms) {
+                await FirestoreService.addMeal({
+                  'name': m.name,
+                  'type': m.type,
+                  'calories': m.calories,
+                  'protein': m.protein,
+                  'carbs': m.carbs,
+                  'fat': m.fat,
+                  'date': m.date,
+                });
+              }
               _loadNutritionTargets();
             }),
       );
@@ -519,7 +521,7 @@ class _AiBanner extends StatelessWidget {
 // ── Add Meal Sheet ─────────────────────────────────────────────────────────────
 class _AddMealSheet extends StatefulWidget {
   final DateTime date;
-  final void Function(_Meal) onAdd;
+  final void Function(List<_Meal>) onAdd;
   const _AddMealSheet({required this.date, required this.onAdd});
   
   @override
@@ -533,6 +535,9 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   String _mealType = 'Breakfast';
   FoodProduct? _selected;
   String _searchQuery = '';
+
+  bool _useUnits = false;
+  List<_Meal> _mealItems = [];
 
   // ── Photo recognition state ──
   bool _photoLoading = false;
@@ -549,7 +554,13 @@ class _AddMealSheetState extends State<_AddMealSheet> {
         .toList();
   }
 
-  double get _gramsValue => double.tryParse(_gramsController.text) ?? 100;
+  double get _gramsValue {
+    final v = double.tryParse(_gramsController.text) ?? 100;
+    if (_useUnits && _selected?.gramsPerUnit != null) {
+      return v * _selected!.gramsPerUnit!;
+    }
+    return v;
+  }
 
   // If a DB product is selected — use its data; otherwise use AI fallback data
   double get _calcCalories {
@@ -573,21 +584,35 @@ class _AddMealSheetState extends State<_AddMealSheet> {
     return 0;
   }
 
-  bool get _canSave => _selected != null || _aiFoodData != null;
+  bool get _canSave => _mealItems.isNotEmpty;
+  bool get _canAdd => _selected != null || _aiFoodData != null;
   String get _saveName => _selected?.name ?? (_aiFoodData?['name'] as String? ?? '');
+
+  void _addToMeal() {
+    if (!_canAdd) return;
+    setState(() {
+      _mealItems.add(_Meal(
+        id: '',
+        name: _saveName,
+        type: _mealType,
+        calories: _calcCalories.round(),
+        protein: _calcProtein,
+        carbs: _calcCarbs,
+        fat: _calcFat,
+        date: widget.date,
+      ));
+      _selected = null;
+      _aiFoodData = null;
+      _searchController.clear();
+      _searchQuery = '';
+      _gramsController.text = '100';
+      _useUnits = false;
+    });
+  }
 
   void _onSave() {
     if (!_canSave) return;
-    widget.onAdd(_Meal(
-      id: '',
-      name: _saveName,
-      type: _mealType,
-      calories: _calcCalories.round(),
-      protein: _calcProtein,
-      carbs: _calcCarbs,
-      fat: _calcFat,
-      date: widget.date,
-    ));
+    widget.onAdd(_mealItems);
     Navigator.pop(context);
   }
 
@@ -609,7 +634,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
     });
 
     try {
-      final bytes = await File(picked.path).readAsBytes();
+      final bytes = await picked.readAsBytes();
       final base64Image = base64Encode(bytes);
 
       final response = await http.post(
@@ -962,7 +987,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                     const SizedBox(height: 24),
 
                     // ── Portion + preview — show if selected OR AI fallback ──
-                    if (_canSave) ...[
+                    if (_canAdd) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -982,9 +1007,38 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                                suffixText: 'g',
+                                suffixText: _useUnits ? _selected?.unitLabel ?? 'units' : 'g',
                                 suffixStyle: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                               ),
+                            ),
+                          ),
+                          if (_selected?.gramsPerUnit != null) ...[
+                            const SizedBox(width: 12),
+                            GestureDetector(
+                              onTap: () => setState(() {
+                                _useUnits = !_useUnits;
+                                _gramsController.text = _useUnits ? '1' : '100';
+                              }),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(_useUnits ? 'In grams' : 'In ${_selected!.unitLabel ?? "units"}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          _BouncingWrapper(
+                            onTap: _addToMeal,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                             ),
                           ),
                         ],
@@ -1003,6 +1057,42 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                             _NutrPreview('${_calcProtein.toStringAsFixed(1)}g', 'protein'),
                             _NutrPreview('${_calcCarbs.toStringAsFixed(1)}g', 'carbs'),
                             _NutrPreview('${_calcFat.toStringAsFixed(1)}g', 'fat'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (_mealItems.isNotEmpty) ...[
+                      const Divider(height: 1, color: AppColors.divider),
+                      const SizedBox(height: 16),
+                      const Text('Current Meal', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 12),
+                      ..._mealItems.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(children: [
+                          Expanded(child: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w500))),
+                          Text('${m.calories} kcal', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 12),
+                          GestureDetector(
+                            onTap: () => setState(() => _mealItems.remove(m)),
+                            child: const Icon(CupertinoIcons.delete, size: 16, color: AppColors.accent),
+                          ),
+                        ]),
+                      )),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _NutrPreview('${_mealItems.fold(0, (s, m) => s + m.calories)}', 'kcal'),
+                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.protein).toStringAsFixed(1)}g', 'protein'),
+                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.carbs).toStringAsFixed(1)}g', 'carbs'),
+                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.fat).toStringAsFixed(1)}g', 'fat'),
                           ],
                         ),
                       ),

@@ -27,13 +27,14 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
   DateTime? _surgeryDate;
   String? _attachedFileName;
   PlatformFile? _attachedFile;
+  String _surgicalPeriod = 'pre';
 
   static const _diagnosisOptions = [
-    'Stomach cancer (gastric adenocarcinoma)',
+    'Stomach cancer (Stage 1)',
+    'Stomach cancer (Stage 2)',
+    'Stomach cancer (Stage 3)',
     'Gastric lymphoma (MALT / DLBCL)',
     'Gastrointestinal stromal tumor (GIST)',
-    'Early-stage stomach cancer (Stage I–II)',
-    'Locally advanced stomach cancer (Stage III)',
     'Other',
   ];
 
@@ -51,6 +52,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
     _historyController = TextEditingController(text: widget.data.medicalHistory);
     _surgeryDate = widget.data.surgeryDate;
     _attachedFileName = widget.data.medicalFileName;
+    _surgicalPeriod = widget.data.surgicalPeriod;
   }
 
   @override
@@ -129,6 +131,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
     widget.data.medicalHistory = _historyController.text.trim();
     widget.data.surgeryDate = _surgeryDate;
     widget.data.medicalFileName = _attachedFileName;
+    widget.data.surgicalPeriod = _surgicalPeriod;
     // Actual upload to Firebase Storage happens in the onboarding screen
     // using _attachedFile?.bytes after onNext() completes.
     widget.onNext();
@@ -184,6 +187,60 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
               decoration: inputDecoration('Enter your diagnosis'),
             ),
           ],
+
+          const SizedBox(height: 20),
+
+          const FieldLabel('Surgical Period'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _surgicalPeriod = 'pre'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: _surgicalPeriod == 'pre' ? AppColors.primary : AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _surgicalPeriod == 'pre' ? AppColors.primary : AppColors.divider),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Pre-rehabilitation',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _surgicalPeriod == 'pre' ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _surgicalPeriod = 'post'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: _surgicalPeriod == 'post' ? AppColors.primary : AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _surgicalPeriod == 'post' ? AppColors.primary : AppColors.divider),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Rehabilitation',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _surgicalPeriod == 'post' ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
           const SizedBox(height: 20),
 

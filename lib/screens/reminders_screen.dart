@@ -540,6 +540,20 @@ class _AddSheetState extends State<_AddSheet> {
   ];
   static const _recs = ['Once', 'Daily', 'Weekly', 'Monthly'];
 
+  static const _commonMeds = [
+    'Omeprazole',
+    'Pantoprazole',
+    'Ondansetron (Zofran)',
+    'Metoclopramide (Reglan)',
+    'Ibuprofen',
+    'Paracetamol / Acetaminophen',
+    'Vitamin D3',
+    'Iron Supplements',
+    'Digestive Enzymes',
+    'Other (enter manually)'
+  ];
+  String? _selectedMed;
+
   // _meta maps type string → (icon, bg color, icon color)
   // Used to set the correct icon when creating the _Reminder object
   static const _meta = {
@@ -602,10 +616,30 @@ class _AddSheetState extends State<_AddSheet> {
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          TextField(
-              controller: _title,
-              decoration: _dec('e.g. Morning medication'),
-              textCapitalization: TextCapitalization.sentences),
+          if (_type == 'Medication') ...[
+            DropdownButtonFormField<String>(
+              value: _selectedMed,
+              decoration: _dec('Select medication'),
+              isExpanded: true,
+              items: _commonMeds.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+              onChanged: (v) {
+                setState(() {
+                  _selectedMed = v;
+                  if (v != null && v != 'Other (enter manually)') {
+                    _title.text = v;
+                  } else {
+                    _title.clear();
+                  }
+                });
+              },
+            ),
+            if (_selectedMed == 'Other (enter manually)') const SizedBox(height: 8),
+          ],
+          if (_type != 'Medication' || _selectedMed == 'Other (enter manually)')
+            TextField(
+                controller: _title,
+                decoration: _dec(_type == 'Medication' ? 'Enter medication name' : 'e.g. Morning medication'),
+                textCapitalization: TextCapitalization.sentences),
           const SizedBox(height: 16),
           const Text('Type',
               style: TextStyle(
@@ -619,7 +653,13 @@ class _AddSheetState extends State<_AddSheet> {
               items: _types
                   .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                   .toList(),
-              onChanged: (v) => setState(() => _type = v!)),
+              onChanged: (v) => setState(() {
+                    _type = v!;
+                    if (_type != 'Medication') {
+                      _selectedMed = null;
+                      _title.clear();
+                    }
+                  })),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(

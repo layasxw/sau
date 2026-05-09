@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:universal_html/html.dart' as html;
+import 'speech_service.dart'; // ← conditional import, safe on all platforms
 
 class _Log {
   final String id;
@@ -40,13 +40,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
   bool _list = true;
   List<_Log> _logs = [];
 
-  // ── Speech fields ──────────────────────────────────────────────────────────
   final _speech = stt.SpeechToText();
   bool _isListening = false;
-  html.SpeechRecognition? _webRecognition;
-  StreamSubscription? _srResult;
-  StreamSubscription? _srError;
-  StreamSubscription? _srEnd;
 
   @override
   void initState() {
@@ -56,7 +51,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
 
   @override
   void dispose() {
-    _cancelWebSpeech();
+    if (kIsWeb) WebSpeechService.stop();
     super.dispose();
   }
 
@@ -78,86 +73,24 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
     });
   }
 
-  // ── Web speech ─────────────────────────────────────────────────────────────
-  void _cancelWebSpeech() {
-    _srResult?.cancel();
-    _srError?.cancel();
-    _srEnd?.cancel();
-    _srResult = null;
-    _srError = null;
-    _srEnd = null;
-    _webRecognition?.stop();
-    _webRecognition = null;
-  }
-
-  void _startWebRecognition(TextEditingController controller) {
-    if (!_isListening || !mounted) return;
-    _cancelWebSpeech();
-
-    final r = html.SpeechRecognition();
-    r.lang = 'ru-RU';
-    r.interimResults = false;
-    r.continuous = false;
-    _webRecognition = r;
-
-    _srResult = r.onResult.listen((event) {
-      final results = event.results;
-      if (results == null || results.length == 0) return;
-      final last = results[results.length - 1];
-      if (last == null || last.isFinal != true) return;
-      final t = last.item(0)?.transcript?.trim() ?? '';
-      if (t.isEmpty) return;
-      final cur = controller.text.trim();
-      setState(() {
-        controller.text = cur.isEmpty ? t : '$cur $t';
-      });
-    });
-
-    _srError = r.onError.listen((_) {
-      if (!mounted) return;
-      _cancelWebSpeech();
-      setState(() => _isListening = false);
-    });
-
-    _srEnd = r.onEnd.listen((_) {
-      if (!mounted || !_isListening) return;
-      Future.delayed(const Duration(milliseconds: 150),
-          () => _startWebRecognition(controller));
-    });
-
-    try {
-      r.start();
-    } catch (e) {
-      debugPrint('Recognition start error: $e');
-      _cancelWebSpeech();
-      setState(() => _isListening = false);
-    }
-  }
-
   Future<void> _listen() async {
-    // ── Web ──────────────────────────────────────────────────────────────────
     if (kIsWeb) {
       if (_isListening) {
-        _cancelWebSpeech();
+        WebSpeechService.stop();
         setState(() => _isListening = false);
         return;
       }
-      
       _showSheet();
       return;
     }
 
-    // ── Native ────────────────────────────────────────────────────────────────
+    // Native
     if (!_isListening) {
       final available = await _speech.initialize(
-        onError: (error) {
-          debugPrint('Speech error: $error');
-          if (mounted) setState(() => _isListening = false);
-        },
-        onStatus: (status) {
-          debugPrint('Speech status: $status');
-          if (status == 'done' || status == 'notListening') {
-            if (mounted) setState(() => _isListening = false);
+        onError: (e) { if (mounted) setState(() => _isListening = false); },
+        onStatus: (s) {
+          if ((s == 'done' || s == 'notListening') && mounted) {
+            setState(() => _isListening = false);
           }
         },
       );
@@ -167,9 +100,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Микрофон недоступен. Разрешите доступ в браузере.')),
+            const SnackBar(content: Text('Микрофон недоступен. Разрешите доступ.')),
           );
         }
       }
@@ -196,7 +127,6 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
               _loadSymptoms();
             }),
       ).then((_) {
-        // Reset listening state when sheet closes
         if (mounted) setState(() => _isListening = false);
       });
 
@@ -206,7 +136,6 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
 
     return Stack(
       children: [
-        // ── Main scroll content ──────────────────────────────────────────────
         CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -266,15 +195,10 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
             ),
           ],
         ),
-
-        // ── Floating mic button ──────────────────────────────────────────────
         Positioned(
           bottom: MediaQuery.of(context).padding.bottom + 110,
           right: 24,
-          child: _MicFab(
-            isListening: _isListening,
-            onTap: _listen,
-          ),
+          child: _MicFab(isListening: _isListening, onTap: _listen),
         ),
       ],
     );
@@ -387,7 +311,6 @@ class _MicFab extends StatefulWidget {
   final bool isListening;
   final VoidCallback onTap;
   const _MicFab({required this.isListening, required this.onTap});
-
   @override
   State<_MicFab> createState() => _MicFabState();
 }
@@ -401,15 +324,11 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
+        vsync: this, duration: const Duration(milliseconds: 900));
     _scale = Tween<double>(begin: 1.0, end: 1.65).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeOut),
-    );
+        CurvedAnimation(parent: _pulse, curve: Curves.easeOut));
     _opacity = Tween<double>(begin: 0.4, end: 0.0).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeOut),
-    );
+        CurvedAnimation(parent: _pulse, curve: Curves.easeOut));
   }
 
   @override
@@ -424,80 +343,53 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
   }
 
   @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
+  void dispose() { _pulse.dispose(); super.dispose(); }
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        widget.onTap();
-        HapticFeedback.mediumImpact();
-      },
-      child: SizedBox(
-        width: 72,
-        height: 72,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Pulsing ring
-            if (widget.isListening)
-              AnimatedBuilder(
-                animation: _pulse,
-                builder: (_, __) => Transform.scale(
-                  scale: _scale.value,
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.accent.withOpacity(_opacity.value),
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () { widget.onTap(); HapticFeedback.mediumImpact(); },
+        child: SizedBox(
+          width: 72, height: 72,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (widget.isListening)
+                AnimatedBuilder(
+                  animation: _pulse,
+                  builder: (_, __) => Transform.scale(
+                    scale: _scale.value,
+                    child: Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.accent.withOpacity(_opacity.value)),
                     ),
                   ),
                 ),
+              Container(
+                width: 60, height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: widget.isListening
+                      ? LinearGradient(
+                          colors: [AppColors.accent, AppColors.accent.withOpacity(0.75)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight)
+                      : AppGradients.primary,
+                  boxShadow: [
+                    BoxShadow(
+                        color: (widget.isListening ? AppColors.accent : AppColors.primary)
+                            .withOpacity(0.38),
+                        blurRadius: 18, offset: const Offset(0, 6)),
+                  ],
+                ),
+                child: Icon(
+                    widget.isListening ? CupertinoIcons.mic_solid : CupertinoIcons.mic,
+                    size: 26, color: Colors.white),
               ),
-            // Main button
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: widget.isListening
-                    ? LinearGradient(
-                        colors: [
-                          AppColors.accent,
-                          AppColors.accent.withOpacity(0.75),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : AppGradients.primary,
-                boxShadow: [
-                  BoxShadow(
-                    color: (widget.isListening
-                            ? AppColors.accent
-                            : AppColors.primary)
-                        .withOpacity(0.38),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(
-                widget.isListening
-                    ? CupertinoIcons.mic_solid
-                    : CupertinoIcons.mic,
-                size: 26,
-                color: Colors.white,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 // ── Log Card ──────────────────────────────────────────────────────────────────
@@ -507,9 +399,7 @@ class _LogCard extends StatelessWidget {
 
   Color get _c => log.avg <= 2
       ? const Color(0xFF10B981)
-      : log.avg <= 3
-          ? const Color(0xFFF59E0B)
-          : AppColors.accent;
+      : log.avg <= 3 ? const Color(0xFFF59E0B) : AppColors.accent;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -518,71 +408,44 @@ class _LogCard extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: AppColors.divider, width: 0.5),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 40,
-                offset: const Offset(0, 10))
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 40, offset: const Offset(0, 10))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Text('${log.date.day}/${log.date.month}/${log.date.year}',
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const Spacer(),
             Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                    color: _c.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: _c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
                 child: Text('Severity ${log.avg}/5',
-                    style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
           ]),
           const SizedBox(height: 16),
           Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 8, runSpacing: 8,
               children: log.symptoms.entries.map((e) {
                 final c = e.value <= 2
                     ? const Color(0xFF10B981)
-                    : e.value <= 3
-                        ? const Color(0xFFF59E0B)
-                        : AppColors.accent;
+                    : e.value <= 3 ? const Color(0xFFF59E0B) : AppColors.accent;
                 return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                        color: c.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
                     child: Text('${e.key} · ${e.value}/5',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: c)));
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)));
               }).toList()),
           if (log.mood.isNotEmpty) ...[
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(CupertinoIcons.smiley,
-                  size: 16, color: AppColors.textSecondary),
+              const Icon(CupertinoIcons.smiley, size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Text('Mood: ${log.mood}',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500)),
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
             ]),
           ],
           if (log.notes.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(log.notes,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+            Text(log.notes, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
           ],
           const SizedBox(height: 16),
           _AiTip(log: log),
@@ -605,25 +468,17 @@ class _AiTip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: isHigh
-              ? AppColors.accent.withOpacity(0.05)
-              : AppColors.primaryLight,
+          color: isHigh ? AppColors.accent.withOpacity(0.05) : AppColors.primaryLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isHigh
-                  ? AppColors.accent.withOpacity(0.2)
-                  : AppColors.primary.withOpacity(0.1))),
+              color: isHigh ? AppColors.accent.withOpacity(0.2) : AppColors.primary.withOpacity(0.1))),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(CupertinoIcons.sparkles,
-            size: 18, color: isHigh ? AppColors.accent : AppColors.primary),
+        Icon(CupertinoIcons.sparkles, size: 18, color: isHigh ? AppColors.accent : AppColors.primary),
         const SizedBox(width: 12),
-        Expanded(
-            child: Text(text,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isHigh ? AppColors.accent : AppColors.textPrimary,
-                    height: 1.4))),
+        Expanded(child: Text(text,
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w500,
+                color: isHigh ? AppColors.accent : AppColors.textPrimary, height: 1.4))),
       ]),
     );
   }
@@ -633,6 +488,7 @@ class _Toggle extends StatelessWidget {
   final bool showList;
   final ValueChanged<bool> onChanged;
   const _Toggle({required this.showList, required this.onChanged});
+
   @override
   Widget build(BuildContext context) => Container(
         height: 40,
@@ -645,6 +501,7 @@ class _Toggle extends StatelessWidget {
           _seg('Chart', !showList, () => onChanged(false)),
         ]),
       );
+
   Widget _seg(String label, bool sel, VoidCallback tap) => GestureDetector(
       onTap: tap,
       behavior: HitTestBehavior.opaque,
@@ -668,7 +525,6 @@ class _CheckInSheet extends StatefulWidget {
   final void Function(_Log, Map<String, dynamic>?) onSave;
   final bool autoListen;
   const _CheckInSheet({required this.onSave, this.autoListen = false});
-
   @override
   State<_CheckInSheet> createState() => _CheckInSheetState();
 }
@@ -684,22 +540,11 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
   static const _categories = {
     'Digestive 🍽️': [
-      'Abdominal pain',
-      'Nausea',
-      'Vomiting (single)',
-      'Vomiting (multiple)',
-      'Bloating',
-      'Diarrhea',
-      'Constipation',
-      'Heartburn',
-      'Loss of appetite'
+      'Abdominal pain', 'Nausea', 'Vomiting (single)', 'Vomiting (multiple)',
+      'Bloating', 'Diarrhea', 'Constipation', 'Heartburn', 'Loss of appetite'
     ],
     'Energy & Body 💪': [
-      'Fatigue',
-      'Weakness',
-      'Fever',
-      'Weight loss',
-      'Dizziness'
+      'Fatigue', 'Weakness', 'Fever', 'Weight loss', 'Dizziness'
     ],
   };
   static const _moods = [
@@ -719,103 +564,69 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   final Set<String> _expandedCategories = {};
   final _scrollController = ScrollController();
 
-  // ── Native speech ──────────────────────────────────────────────────────────
+  // Native speech
   final _speech = stt.SpeechToText();
   bool _isListening = false;
-
-  // ── Web speech ─────────────────────────────────────────────────────────────
-  html.SpeechRecognition? _webRecognition;
-  StreamSubscription? _srResult;
-  StreamSubscription? _srError;
-  StreamSubscription? _srEnd;
 
   @override
   void dispose() {
     _notes.dispose();
     _aiText.dispose();
     _scrollController.dispose();
-    _cancelWebSpeech();
+    if (kIsWeb) WebSpeechService.stop();
     super.dispose();
-  }
-
-  void _cancelWebSpeech() {
-    _srResult?.cancel();
-    _srError?.cancel();
-    _srEnd?.cancel();
-    _srResult = null;
-    _srError = null;
-    _srEnd = null;
-    _webRecognition?.stop();
-    _webRecognition = null;
-  }
-
-  void _startWebRecognition() {
-    if (!_isListening || !mounted) return;
-
-    _cancelWebSpeech();
-
-    final r = html.SpeechRecognition();
-    r.lang = 'ru-RU';
-    r.interimResults = false;
-    r.continuous = false;
-    _webRecognition = r;
-
-    _srResult = r.onResult.listen((event) {
-      final results = event.results;
-      if (results == null || results.length == 0) return;
-      final last = results[results.length - 1];
-      if (last == null || last.isFinal != true) return;
-      final t = last.item(0)?.transcript?.trim() ?? '';
-      if (t.isEmpty) return;
-      final cur = _aiText.text.trim();
-      setState(() {
-        _aiText.text = cur.isEmpty ? t : '$cur $t';
-      });
-    });
-
-    _srError = r.onError.listen((_) {
-      if (!mounted) return;
-      _cancelWebSpeech();
-      setState(() => _isListening = false);
-    });
-
-    _srEnd = r.onEnd.listen((_) {
-      if (!mounted || !_isListening) return;
-      Future.delayed(const Duration(milliseconds: 150), _startWebRecognition);
-    });
-
-    try {
-      r.start();
-    } catch (e) {
-      debugPrint('Recognition start error: $e');
-      _cancelWebSpeech();
-      setState(() => _isListening = false);
-    }
   }
 
   Future<void> _listen() async {
     // ── Web ──────────────────────────────────────────────────────────────────
     if (kIsWeb) {
       if (_isListening) {
-        _cancelWebSpeech();
+        WebSpeechService.stop();
         setState(() => _isListening = false);
         return;
       }
       setState(() => _isListening = true);
-      _startWebRecognition();
+      WebSpeechService.start(
+        lang: 'ru-RU',
+        onResult: (text) {
+          if (!mounted) return;
+          final cur = _aiText.text.trim();
+          setState(() => _aiText.text = cur.isEmpty ? text : '$cur $text');
+        },
+        onEnd: () {
+          // Auto-restart loop while still listening
+          if (mounted && _isListening) {
+            Future.delayed(const Duration(milliseconds: 150), () {
+              if (mounted && _isListening) {
+                WebSpeechService.start(
+                  lang: 'ru-RU',
+                  onResult: (text) {
+                    if (!mounted) return;
+                    final cur = _aiText.text.trim();
+                    setState(() => _aiText.text = cur.isEmpty ? text : '$cur $text');
+                  },
+                  onEnd: () {},
+                  onError: () {
+                    if (mounted) setState(() => _isListening = false);
+                  },
+                );
+              }
+            });
+          }
+        },
+        onError: () {
+          if (mounted) setState(() => _isListening = false);
+        },
+      );
       return;
     }
 
-    // ── Native (iOS / Android) ────────────────────────────────────────────────
+    // ── Native (Android / iOS) ────────────────────────────────────────────────
     if (!_isListening) {
       final available = await _speech.initialize(
-        onError: (error) {
-          debugPrint('Speech error: $error');
-          setState(() => _isListening = false);
-        },
-        onStatus: (status) {
-          debugPrint('Speech status: $status');
-          if (status == 'done' || status == 'notListening') {
+        onError: (e) { if (mounted) setState(() => _isListening = false); },
+        onStatus: (s) {
+          if ((s == 'done' || s == 'notListening') && mounted) {
             setState(() => _isListening = false);
           }
         },
@@ -829,8 +640,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
             if (recognized.isEmpty) return;
             final current = _aiText.text.trim();
             setState(() {
-              _aiText.text =
-                  current.isEmpty ? recognized : '$current $recognized';
+              _aiText.text = current.isEmpty ? recognized : '$current $recognized';
             });
           },
           listenFor: Duration.zero,
@@ -840,9 +650,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Микрофон недоступен. Разрешите доступ в браузере.')),
+            const SnackBar(content: Text('Микрофон недоступен. Разрешите доступ.')),
           );
         }
       }
@@ -865,9 +673,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
         final data = jsonDecode(response.body);
         if (data.containsKey('error')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('AI не смог обработать запрос, попробуй ещё раз')),
+            const SnackBar(content: Text('AI не смог обработать запрос, попробуй ещё раз')),
           );
           return;
         }
@@ -875,13 +681,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           _sel.clear();
           final symptoms = Map<String, dynamic>.from(data['symptoms'] ?? {});
           symptoms.forEach((k, v) => _sel[k] = (v as num).toInt());
-          const moodMap = {
-            'Great': 'Great',
-            'Good': 'Good',
-            'Okay': 'Okay',
-            'Low': 'Low',
-            'Bad': 'Bad',
-          };
+          const moodMap = {'Great': 'Great', 'Good': 'Good', 'Okay': 'Okay', 'Low': 'Low', 'Bad': 'Bad'};
           _mood = moodMap[data['mood']] ?? data['mood'] ?? '';
           _notes.text = data['notes'] ?? '';
         });
@@ -915,9 +715,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           'notes': _notes.text.trim(),
           'diagnosis': medical?['diagnosis'],
           'days_since_surgery': daysSinceSurgery,
-          'restrictions': {
-            'allergies': profile?['allergies'] ?? [],
-          },
+          'restrictions': {'allergies': profile?['allergies'] ?? []},
         }),
       );
 
@@ -933,12 +731,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
   Future<void> _saveAfterAI() async {
     widget.onSave(
-      _Log(
-          id: '',
-          date: DateTime.now(),
-          symptoms: Map.from(_sel),
-          mood: _mood,
-          notes: _notes.text.trim()),
+      _Log(id: '', date: DateTime.now(), symptoms: Map.from(_sel), mood: _mood, notes: _notes.text.trim()),
       _aiResult,
     );
     if (mounted) Navigator.pop(context);
@@ -961,11 +754,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
             const SizedBox(height: 12),
             Center(
               child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: AppColors.divider,
-                    borderRadius: BorderRadius.circular(2)),
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 24),
@@ -973,53 +763,33 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Daily Check-in',
-                            style: Theme.of(context).textTheme.headlineMedium),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary),
-                        ),
-                      ]),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Daily Check-in', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ]),
                   const Spacer(),
                   GestureDetector(
                     onTap: _listen,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: _isListening
-                            ? AppColors.accent.withOpacity(0.08)
-                            : AppColors.surface,
+                        color: _isListening ? AppColors.accent.withOpacity(0.08) : AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: _isListening
-                                ? AppColors.accent
-                                : AppColors.divider),
+                        border: Border.all(color: _isListening ? AppColors.accent : AppColors.divider),
                       ),
                       child: Row(children: [
-                        Icon(
-                            _isListening
-                                ? CupertinoIcons.mic_solid
-                                : CupertinoIcons.mic,
-                            size: 16,
-                            color: _isListening
-                                ? AppColors.accent
-                                : AppColors.textPrimary),
+                        Icon(_isListening ? CupertinoIcons.mic_solid : CupertinoIcons.mic,
+                            size: 16, color: _isListening ? AppColors.accent : AppColors.textPrimary),
                         const SizedBox(width: 6),
                         Text(_isListening ? 'Listening...' : 'Voice',
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _isListening
-                                  ? AppColors.accent
-                                  : AppColors.textPrimary,
-                            )),
+                                fontSize: 12, fontWeight: FontWeight.w600,
+                                color: _isListening ? AppColors.accent : AppColors.textPrimary)),
                       ]),
                     ),
                   ),
@@ -1032,417 +802,267 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               child: SingleChildScrollView(
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(
-                    24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _aiText,
-                        maxLines: 3,
-                        style: const TextStyle(
-                            fontSize: 14, color: AppColors.textPrimary),
-                        decoration: InputDecoration(
-                          hintText:
-                              'Опишите симптомы текстом или используйте голос...',
-                          hintStyle: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 13),
-                          filled: true,
-                          fillColor: AppColors.background,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide:
-                                  const BorderSide(color: AppColors.divider)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                  color: AppColors.primary, width: 1.5)),
-                        ),
+                padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  TextField(
+                    controller: _aiText,
+                    maxLines: 3,
+                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Опишите симптомы текстом или используйте голос...',
+                      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      filled: true, fillColor: AppColors.background,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _BouncingWrapper(
+                    onTap: _aiText.text.trim().isNotEmpty && !_aiLoading ? _analyzeWithAI : null,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
                       ),
-                      const SizedBox(height: 10),
-                      _BouncingWrapper(
-                        onTap: _aiText.text.trim().isNotEmpty && !_aiLoading
-                            ? _analyzeWithAI
-                            : null,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                                color: AppColors.primary.withOpacity(0.2)),
-                          ),
-                          child: _aiLoading
-                              ? const Center(
-                                  child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AppColors.primary)))
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                      Icon(CupertinoIcons.sparkles,
-                                          size: 16, color: AppColors.primary),
-                                      SizedBox(width: 8),
-                                      Text('Заполнить через AI',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.primary)),
-                                    ]),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Divider(
-                          height: 1, color: AppColors.divider, thickness: 0.5),
-                      const SizedBox(height: 24),
-                      _stepLabel('1', 'Select your symptoms'),
-                      const SizedBox(height: 16),
-                      ..._categories.entries.map((cat) {
-                        final allSymptoms = cat.value;
-                        final isExpanded =
-                            _expandedCategories.contains(cat.key);
-                        final visibleSymptoms = isExpanded
-                            ? allSymptoms
-                            : allSymptoms.take(4).toList();
-                        final hasMore = allSymptoms.length > 4;
-                        return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(cat.key,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textSecondary,
-                                      letterSpacing: 0.3)),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  ...visibleSymptoms.map((s) {
-                                    final selected = _sel.containsKey(s);
-                                    return GestureDetector(
-                                      onTap: () => setState(() => selected
-                                          ? _sel.remove(s)
-                                          : _sel[s] = 2),
-                                      child: AnimatedContainer(
-                                        duration:
-                                            const Duration(milliseconds: 150),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: selected
-                                              ? AppColors.primary
-                                              : AppColors.background,
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                          border: Border.all(
-                                              color: selected
-                                                  ? AppColors.primary
-                                                  : AppColors.divider),
-                                        ),
-                                        child: Text(s,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: selected
-                                                  ? Colors.white
-                                                  : AppColors.textPrimary,
-                                            )),
-                                      ),
-                                    );
-                                  }),
-                                  if (hasMore)
-                                    GestureDetector(
-                                      onTap: () => setState(() => isExpanded
-                                          ? _expandedCategories.remove(cat.key)
-                                          : _expandedCategories.add(cat.key)),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.background,
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                          border: Border.all(
-                                              color: AppColors.primary
-                                                  .withOpacity(0.3)),
-                                        ),
-                                        child: Text(
-                                            isExpanded
-                                                ? 'Show less'
-                                                : '+ ${allSymptoms.length - 4} more',
-                                            style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.primary)),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                            ]);
-                      }),
-                      if (_sel.isNotEmpty) ...[
-                        const Divider(
-                            height: 1,
-                            color: AppColors.divider,
-                            thickness: 0.5),
-                        const SizedBox(height: 20),
-                        const Text('Severity',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                                letterSpacing: 0.3)),
-                        const SizedBox(height: 12),
-                        ..._sel.keys.map((name) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(children: [
-                                Expanded(
-                                    child: Text(name,
-                                        style: const TextStyle(
-                                            fontSize: 14,
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w500))),
-                                Text('${_sel[name]}/5',
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.primary)),
-                                Expanded(
-                                  flex: 2,
-                                  child: Slider(
-                                    min: 1,
-                                    max: 5,
-                                    divisions: 4,
-                                    value: _sel[name]!.toDouble(),
-                                    activeColor: AppColors.primary,
-                                    inactiveColor: AppColors.primaryLight,
-                                    onChanged: (v) =>
-                                        setState(() => _sel[name] = v.round()),
-                                  ),
-                                ),
-                              ]),
-                            )),
-                        const SizedBox(height: 12),
-                      ],
-                      const Divider(
-                          height: 1, color: AppColors.divider, thickness: 0.5),
-                      const SizedBox(height: 24),
-                      _stepLabel('2', 'Overall mood'),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: _moods.map((m) {
-                          final sel = _mood == m['label'];
+                      child: _aiLoading
+                          ? const Center(child: SizedBox(width: 18, height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+                          : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(CupertinoIcons.sparkles, size: 16, color: AppColors.primary),
+                              SizedBox(width: 8),
+                              Text('Заполнить через AI', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                            ]),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
+                  const SizedBox(height: 24),
+                  _stepLabel('1', 'Select your symptoms'),
+                  const SizedBox(height: 16),
+                  ..._categories.entries.map((cat) {
+                    final allSymptoms = cat.value;
+                    final isExpanded = _expandedCategories.contains(cat.key);
+                    final visibleSymptoms = isExpanded ? allSymptoms : allSymptoms.take(4).toList();
+                    final hasMore = allSymptoms.length > 4;
+                    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(cat.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
+                      const SizedBox(height: 12),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        ...visibleSymptoms.map((s) {
+                          final selected = _sel.containsKey(s);
                           return GestureDetector(
-                            onTap: () => setState(() => _mood = m['label']!),
+                            onTap: () => setState(() => selected ? _sel.remove(s) : _sel[s] = 2),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
-                                color: sel
-                                    ? AppColors.primaryLight
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                    color: sel
-                                        ? AppColors.primary
-                                        : Colors.transparent,
-                                    width: 1.5),
+                                color: selected ? AppColors.primary : AppColors.background,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
                               ),
-                              child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(m['emoji']!,
-                                        style: const TextStyle(fontSize: 28)),
-                                    const SizedBox(height: 6),
-                                    Text(m['label']!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: sel
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                          color: sel
-                                              ? AppColors.primary
-                                              : AppColors.textSecondary,
-                                        )),
-                                  ]),
+                              child: Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: selected ? Colors.white : AppColors.textPrimary)),
                             ),
                           );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 24),
-                      const Divider(
-                          height: 1, color: AppColors.divider, thickness: 0.5),
-                      const SizedBox(height: 24),
-                      _stepLabel('3', 'Add details (optional)'),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _notes,
-                        maxLines: 3,
-                        style: const TextStyle(
-                            fontSize: 14, color: AppColors.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: 'Any notes for your doctor...',
-                          hintStyle: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 14),
-                          filled: true,
-                          fillColor: AppColors.background,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 16),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide:
-                                  const BorderSide(color: AppColors.divider)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                  color: AppColors.primary, width: 1.5)),
-                        ),
-                      ),
-                      if (_aiResult != null) ...[
-                        const SizedBox(height: 24),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: _aiResult!['risk'] == 'high'
-                                ? AppColors.accent.withOpacity(0.05)
-                                : AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: _aiResult!['risk'] == 'high'
-                                    ? AppColors.accent.withOpacity(0.3)
-                                    : AppColors.primary.withOpacity(0.2)),
+                        }),
+                        if (hasMore)
+                          GestureDetector(
+                            onTap: () => setState(() => isExpanded
+                                ? _expandedCategories.remove(cat.key)
+                                : _expandedCategories.add(cat.key)),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                              ),
+                              child: Text(isExpanded ? 'Show less' : '+ ${allSymptoms.length - 4} more',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                            ),
                           ),
-                          child: Column(
+                      ]),
+                      const SizedBox(height: 20),
+                    ]);
+                  }),
+                  if (_sel.isNotEmpty) ...[
+                    if (_sel.keys.any((k) => !k.toLowerCase().contains('vomiting'))) ...[
+                      const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 20),
+                      const Text('Severity', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
+                      const SizedBox(height: 12),
+                      ..._sel.keys.where((k) => !k.toLowerCase().contains('vomiting')).map((name) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(children: [
+                              Expanded(child: Text(name, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w500))),
+                              Text('${_sel[name]}/5', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                              Expanded(
+                                flex: 2,
+                                child: Slider(
+                                  min: 1, max: 5, divisions: 4,
+                                  value: _sel[name]!.toDouble(),
+                                  activeColor: AppColors.primary,
+                                  inactiveColor: AppColors.primaryLight,
+                                  onChanged: (v) => setState(() => _sel[name] = v.round()),
+                                ),
+                              ),
+                            ]),
+                          )),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                  if (_sel.containsKey('Vomiting (multiple)')) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.accent.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.accent, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(children: [
-                                  Icon(CupertinoIcons.sparkles,
-                                      size: 16,
-                                      color: _aiResult!['risk'] == 'high'
-                                          ? AppColors.accent
-                                          : AppColors.primary),
-                                  const SizedBox(width: 8),
-                                  Text('AI Insights',
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: _aiResult!['risk'] == 'high'
-                                              ? AppColors.accent
-                                              : AppColors.primary)),
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _aiResult!['risk'] == 'high'
-                                          ? AppColors.accent
-                                          : (_aiResult!['risk'] == 'medium'
-                                              ? Colors.orange
-                                              : const Color(0xFF10B981)),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                        (_aiResult!['risk'] ?? '')
-                                            .toString()
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w800)),
-                                  ),
-                                ]),
-                                const SizedBox(height: 12),
-                                Text(_aiResult!['summary'] ?? '',
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppColors.textPrimary,
-                                        height: 1.4)),
-                                const SizedBox(height: 6),
-                                Text(_aiResult!['advice'] ?? '',
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppColors.textSecondary,
-                                        height: 1.4)),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'This is not medical advice. Please consult your doctor.',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                      fontStyle: FontStyle.italic),
-                                ),
-                              ]),
+                                const Text('Critical Warning', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.accent)),
+                                const SizedBox(height: 4),
+                                Text('Multiple vomiting episodes can cause severe dehydration. Please CALL YOUR DOCTOR or GO TO THE HOSPITAL immediately.', style: TextStyle(fontSize: 13, color: AppColors.accent.withOpacity(0.9), height: 1.4, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
+                  const SizedBox(height: 24),
+                  _stepLabel('2', 'Overall mood'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _moods.map((m) {
+                      final sel = _mood == m['label'];
+                      return GestureDetector(
+                        onTap: () => setState(() => _mood = m['label']!),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: sel ? AppColors.primaryLight : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: sel ? AppColors.primary : Colors.transparent, width: 1.5),
+                          ),
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Text(m['emoji']!, style: const TextStyle(fontSize: 28)),
+                            const SizedBox(height: 6),
+                            Text(m['label']!, style: TextStyle(fontSize: 12,
+                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                color: sel ? AppColors.primary : AppColors.textSecondary)),
+                          ]),
                         ),
-                      ],
-                      const SizedBox(height: 40),
-                    ]),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
+                  const SizedBox(height: 24),
+                  _stepLabel('3', 'Add details (optional)'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _notes,
+                    maxLines: 3,
+                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Any notes for your doctor...',
+                      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      filled: true, fillColor: AppColors.background,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                    ),
+                  ),
+                  if (_aiResult != null) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _aiResult!['risk'] == 'high' ? AppColors.accent.withOpacity(0.05) : AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: _aiResult!['risk'] == 'high'
+                                ? AppColors.accent.withOpacity(0.3)
+                                : AppColors.primary.withOpacity(0.2)),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Icon(CupertinoIcons.sparkles, size: 16,
+                              color: _aiResult!['risk'] == 'high' ? AppColors.accent : AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text('AI Insights', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                              color: _aiResult!['risk'] == 'high' ? AppColors.accent : AppColors.primary)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _aiResult!['risk'] == 'high' ? AppColors.accent
+                                  : (_aiResult!['risk'] == 'medium' ? Colors.orange : const Color(0xFF10B981)),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text((_aiResult!['risk'] ?? '').toString().toUpperCase(),
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                          ),
+                        ]),
+                        const SizedBox(height: 12),
+                        Text(_aiResult!['summary'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4)),
+                        const SizedBox(height: 6),
+                        Text(_aiResult!['advice'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+                        const SizedBox(height: 8),
+                        const Text('This is not medical advice. Please consult your doctor.',
+                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
+                      ]),
+                    ),
+                  ],
+                  const SizedBox(height: 40),
+                ]),
               ),
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
-                border: Border(
-                    top: BorderSide(color: AppColors.divider, width: 0.5)),
+                border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
               ),
               child: _BouncingWrapper(
-                  onTap: _canSave && !_aiLoading
-                      ? (_aiResult != null ? _saveAfterAI : _analyzeSymptoms)
-                      : null,
+                  onTap: _canSave && !_aiLoading ? (_aiResult != null ? _saveAfterAI : _analyzeSymptoms) : null,
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      gradient: (_canSave && !_aiLoading)
-                          ? AppGradients.primary
-                          : null,
-                      color:
-                          (!_canSave || _aiLoading) ? AppColors.divider : null,
+                      gradient: (_canSave && !_aiLoading) ? AppGradients.primary : null,
+                      color: (!_canSave || _aiLoading) ? AppColors.divider : null,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: _aiLoading
-                        ? const Center(
-                            child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white)))
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                                Icon(
-                                    _aiResult != null
-                                        ? CupertinoIcons.checkmark_alt
-                                        : CupertinoIcons.sparkles,
-                                    size: 18,
-                                    color: Colors.white),
-                                const SizedBox(width: 8),
-                                Text(
-                                    _aiResult != null
-                                        ? 'Save'
-                                        : 'Analyze & Save',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700)),
-                              ]),
+                        ? const Center(child: SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
+                        : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(_aiResult != null ? CupertinoIcons.checkmark_alt : CupertinoIcons.sparkles,
+                                size: 18, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(_aiResult != null ? 'Save' : 'Analyze & Save',
+                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                          ]),
                   )),
             ),
           ],
@@ -1453,24 +1073,12 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
   Widget _stepLabel(String step, String title) => Row(children: [
         Container(
-          width: 24,
-          height: 24,
-          decoration: const BoxDecoration(
-              color: AppColors.primary, shape: BoxShape.circle),
-          child: Center(
-              child: Text(step,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white))),
+          width: 24, height: 24,
+          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+          child: Center(child: Text(step, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white))),
         ),
         const SizedBox(width: 10),
-        Text(title,
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-                letterSpacing: -0.2)),
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary, letterSpacing: -0.2)),
       ]);
 }
 
@@ -1494,7 +1102,6 @@ class _HBPainter extends CustomPainter {
           ..lineTo(size.width, size.height * .5),
         p);
   }
-
   @override
   bool shouldRepaint(_) => false;
 }
@@ -1503,30 +1110,24 @@ class _BouncingWrapper extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   const _BouncingWrapper({super.key, required this.child, this.onTap});
-
   @override
   State<_BouncingWrapper> createState() => _BouncingWrapperState();
 }
 
-class _BouncingWrapperState extends State<_BouncingWrapper>
-    with SingleTickerProviderStateMixin {
+class _BouncingWrapperState extends State<_BouncingWrapper> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 100));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
     _scale = Tween<double>(begin: 1.0, end: 0.96)
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _controller.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) => GestureDetector(
