@@ -185,6 +185,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
         // Only call AI if there's actually data today
         if (todaySymptoms.isEmpty && todayMeals.isEmpty) return;
 
+        final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
         final response = await http.post(
           Uri.parse(ApiConfig.suggestRemindersUrl),
           headers: {'Content-Type': 'application/json'},
@@ -195,6 +196,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
             },
             'meals': todayMeals.map((m) => m['name']).toList(),
             'mood': todaySymptoms.isNotEmpty ? todaySymptoms.first['mood'] : null,
+            'lang': lang,
           }),
         );
 

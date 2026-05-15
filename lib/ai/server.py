@@ -19,6 +19,7 @@ app.add_middleware(
         "https://sau-rehab-app.firebaseapp.com",
         "http://localhost",
         "http://localhost:5000",
+        "http://localhost:49196",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,10 +54,11 @@ def safe_json_parse(raw: str):
         return {"error": "Invalid AI response", "raw": clean}
 
 
-# ── Food Photo Recognition ─────────────────────────────────────────────────────
+# Food Photo Recognition 
 
 class FoodRecognitionRequest(BaseModel):
-    image: str  # base64-encoded image (JPEG/PNG)
+    image: str
+    lang: str = "en"
 
 @app.post("/recognize-food")
 def recognize_food(request: FoodRecognitionRequest):
@@ -64,7 +66,6 @@ def recognize_food(request: FoodRecognitionRequest):
     Accepts a base64 image, returns recognized food name + nutrition per 100g.
     Uses Groq LLaMA-4 Vision as primary, falls back to LLaMA-3.2 Vision if needed.
     """
-    # Validate base64 and detect mime type from magic bytes
     try:
         img_bytes = base64.b64decode(request.image)
         if img_bytes[:4] == b'\x89PNG':
@@ -75,22 +76,21 @@ def recognize_food(request: FoodRecognitionRequest):
     except Exception:
         return {"error": "Invalid image data"}
 
-    system_prompt = """You are a food recognition expert specializing in Central Asian cuisine (Kazakh, Uzbek, Kyrgyz, Tajik, Turkmen) as well as international dishes.
+    system_prompt = f"""You are a food recognition expert specializing in Central Asian cuisine (Kazakh, Uzbek, Kyrgyz, Tajik, Turkmen) as well as international dishes.
 
 Analyze the food in the image and return ONLY a JSON object with NO extra text:
-{
-  "name": "dish name in English (use common transliteration for Central Asian dishes, e.g. Beshbarmak, Plov, Manty)",
-  "name_ru": "название блюда на русском",
+{{
+  "name": "dish name in {request.lang} (use common transliteration for Central Asian dishes if needed)",
   "confidence": 0.0 to 1.0,
   "calories_per_100g": number,
   "protein_per_100g": number,
   "carbs_per_100g": number,
   "fat_per_100g": number,
   "category": "one of: Казахская кухня / ЦА кухня / Protein / Grains / Vegetables / Fruits / Dairy / Soups / Fast food / Other"
-}
+}}
 
 Nutrition values must be realistic per 100g of the dish as typically prepared.
-If you cannot identify any food in the image, return: {"error": "No food detected", "confidence": 0.0}
+If you cannot identify any food in the image, return: {{"error": "No food detected", "confidence": 0.0}}
 Never return markdown, never explain, only JSON."""
 
     # Try llama-4-scout first (best vision), fall back to llama-3.2-11b-vision
@@ -122,47 +122,45 @@ Never return markdown, never explain, only JSON."""
             )
             result = safe_json_parse(response.choices[0].message.content)
 
-            # If we got a valid food result — return it
             if "name" in result and "error" not in result:
                 return result
 
-            # If model said no food detected — still return that (don't retry)
             if result.get("error") == "No food detected":
                 return result
 
         except Exception as e:
-            # Model unavailable or rate limited — try next
             continue
 
     return {"error": "Recognition failed. Please try another photo."}
 
 
-# ── Symptoms ───────────────────────────────────────────────────────────────────
+# Symptoms 
 
 class SymptomRequest(BaseModel):
     text: str
+    lang: str = "en"
 
 @app.post("/symptoms")
 def extract_symptoms(request: SymptomRequest):
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": """You are a medical data extraction assistant.
-Extract symptoms from the user's text and return ONLY JSON in English:
-{
-  "mood": "Great, Good, Okay, Low, or Bad",
-  "notes": "brief summary of what the patient said",
-  "symptoms": {"Symptom name in English": 1-5}
-}
+            {"role": "system", "content": f"""You are a medical data extraction assistant.
+Extract symptoms from the user's text and return ONLY JSON in {request.lang}:
+{{
+  "mood": "Great, Good, Okay, Low, or Bad (in {request.lang})",
+  "notes": "brief summary of what the patient said in {request.lang}",
+  "symptoms": {{"Symptom name in {request.lang}": 1-5}}
+}}
 Severity scale: 1=very mild, 2=mild, 3=moderate, 4=severe, 5=very severe.
-Always respond in English regardless of input language."""},
+Always respond in {request.lang} regardless of input language."""},
             {"role": "user", "content": request.text}
         ]
     )
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Symptom Analysis ───────────────────────────────────────────────────────────
+# Symptom Analysis 
 
 class SymptomAnalysisRequest(BaseModel):
     symptoms: Dict[str, int]
@@ -171,6 +169,7 @@ class SymptomAnalysisRequest(BaseModel):
     diagnosis: Optional[str] = None
     days_since_surgery: Optional[int] = None
     restrictions: Optional[dict] = None
+    lang: str = "en"
 
 @app.post("/analyze-symptoms")
 def analyze_symptoms(request: SymptomAnalysisRequest):
@@ -195,14 +194,14 @@ Notes: {request.notes or 'none'}"""
             {"role": "system", "content": f"""You are a rehabilitation support assistant for post-surgical patients.
 {SAFETY_RULES}
 Give personalized, supportive advice based on the patient's specific diagnosis and recovery stage.
-Always respond in English.
+Always respond in {request.lang}.
 
 Return ONLY JSON:
 {{
   "risk": "low|medium|high",
-  "summary": "brief summary of current state in 1-2 sentences",
-  "advice": "specific advice relevant to their diagnosis and recovery day",
-  "reminder": "one gentle motivational reminder",
+  "summary": "brief summary of current state in 1-2 sentences in {request.lang}",
+  "advice": "specific advice relevant to their diagnosis and recovery day in {request.lang}",
+  "reminder": "one gentle motivational reminder in {request.lang}",
   "see_doctor": true or false
 }}"""},
             {"role": "user", "content": prompt}
@@ -211,13 +210,14 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Recovery Advisor ───────────────────────────────────────────────────────────
+# Recovery Advisor 
 
 class AdvisorRequest(BaseModel):
     profile: Optional[dict] = None
     medical: Optional[dict] = None
     recent_symptoms: Optional[list] = None
     recent_meals: Optional[list] = None
+    lang: str = "en"
 
 @app.post("/analyze")
 def analyze_recovery(request: AdvisorRequest):
@@ -232,16 +232,16 @@ Recent meals: {request.recent_meals}
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation expert for post-surgical patients.
 {SAFETY_RULES}
-Always respond in English.
+Always respond in {request.lang}.
 
 Return ONLY JSON:
 {{
   "risk": "low|medium|high",
-  "status": "overall recovery status in 1-2 sentences",
-  "concerns": "any concerns based on symptoms and nutrition",
-  "nutrition": "personalized nutrition advice based on diagnosis",
-  "activity": "appropriate activity recommendations for recovery stage",
-  "doctor": "what to discuss at next doctor appointment"
+  "status": "overall recovery status in 1-2 sentences in {request.lang}",
+  "concerns": "any concerns based on symptoms and nutrition in {request.lang}",
+  "nutrition": "personalized nutrition advice based on diagnosis in {request.lang}",
+  "activity": "appropriate activity recommendations for recovery stage in {request.lang}",
+  "doctor": "what to discuss at next doctor appointment in {request.lang}"
 }}"""},
             {"role": "user", "content": prompt}
         ]
@@ -249,7 +249,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Meal Analysis ──────────────────────────────────────────────────────────────
+# Meal Analysis 
 
 class MealAnalysisRequest(BaseModel):
     meals: list
@@ -259,6 +259,7 @@ class MealAnalysisRequest(BaseModel):
     total_fat: float
     diagnosis: Optional[str] = None
     days_since_surgery: Optional[int] = None
+    lang: str = "en"
 
 @app.post("/analyze-meal")
 def analyze_meal(request: MealAnalysisRequest):
@@ -280,13 +281,13 @@ Fat: {request.total_fat}g"""
         messages=[
             {"role": "system", "content": f"""You are a nutrition advisor for post-surgical rehabilitation patients.
 {SAFETY_RULES}
-Always respond in English.
+Always respond in {request.lang}.
 
 Return ONLY JSON:
 {{
   "rating": "low|good|high",
-  "summary": "brief assessment of today's nutrition in 1-2 sentences",
-  "advice": "specific nutrition advice relevant to their diagnosis and recovery stage"
+  "summary": "brief assessment of today's nutrition in 1-2 sentences in {request.lang}",
+  "advice": "specific nutrition advice relevant to their diagnosis and recovery stage in {request.lang}"
 }}"""},
             {"role": "user", "content": prompt}
         ]
@@ -294,7 +295,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Reminder Suggestions ───────────────────────────────────────────────────────
+# Reminder Suggestions 
 
 class ReminderSuggestionRequest(BaseModel):
     symptoms: Optional[Dict[str, int]] = None
@@ -302,6 +303,7 @@ class ReminderSuggestionRequest(BaseModel):
     mood: Optional[str] = None
     diagnosis: Optional[str] = None
     days_since_surgery: Optional[int] = None
+    lang: str = "en"
 
 @app.post("/suggest-reminders")
 def suggest_reminders(request: ReminderSuggestionRequest):
@@ -321,13 +323,13 @@ Mood: {request.mood or 'none'}"""
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation support assistant.
 {SAFETY_RULES}
-Suggest 2-3 personalized reminders based on the patient's current state and diagnosis.
-Always respond in English.
+Suggest 2-3 personalized reminders based on the patient's current state and diagnosis in {request.lang}.
+Always respond in {request.lang}.
 
 Return ONLY JSON:
 {{
   "reminders": [
-    {{"title": "short title", "description": "brief description"}}
+    {{"title": "short title in {request.lang}", "description": "brief description in {request.lang}"}}
   ]
 }}"""},
             {"role": "user", "content": prompt}
@@ -336,7 +338,7 @@ Return ONLY JSON:
     return safe_json_parse(response.choices[0].message.content)
 
 
-# ── Recovery Score ─────────────────────────────────────────────────────────────
+# Recovery Score 
 
 class DailyLog(BaseModel):
     date: str

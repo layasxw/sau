@@ -145,6 +145,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   Future<void> _analyzeMeals() async {
     if (_todayMeals.isEmpty) return;
     setState(() => _aiMealLoading = true);
+    final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.analyzeMealUrl),
@@ -155,6 +156,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           'total_protein': _protein,
           'total_carbs': _carbs,
           'total_fat': _fat,
+          'lang': lang,
         }),
       );
       if (response.statusCode == 200) {
@@ -651,10 +653,11 @@ class _AddMealSheetState extends State<_AddMealSheet> {
       final bytes = await picked.readAsBytes();
       final base64Image = base64Encode(bytes);
 
+      final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
       final response = await http.post(
         Uri.parse(ApiConfig.recognizeFoodUrl),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'image': base64Image}),
+        body: jsonEncode({'image': base64Image, 'lang': lang}),
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {

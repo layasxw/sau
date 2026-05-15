@@ -180,6 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final symptoms = results[2] as List<Map<String, dynamic>>;
       final meals    = results[3] as List<Map<String, dynamic>>;
 
+      final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
       final response = await http.post(
         Uri.parse(ApiConfig.analyzeUrl),
         headers: {'Content-Type': 'application/json'},
@@ -188,6 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'medical':          _toJson(medical),
           'recent_symptoms':  _toJson(symptoms.take(5).toList()),
           'recent_meals':     _toJson(meals.take(5).toList()),
+          'lang':             lang,
         }),
       );
 

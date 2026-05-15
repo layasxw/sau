@@ -669,11 +669,12 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   Future<void> _analyzeWithAI() async {
     if (_aiText.text.trim().isEmpty) return;
     setState(() => _aiLoading = true);
+    final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.symptomsUrl),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'text': _aiText.text.trim()}),
+        body: jsonEncode({'text': _aiText.text.trim(), 'lang': lang}),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -712,6 +713,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
         daysSinceSurgery = DateTime.now().difference(surgeryDate).inDays;
       }
 
+      final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
       final response = await http.post(
         Uri.parse(ApiConfig.analyzeSymptomsUrl),
         headers: {'Content-Type': 'application/json'},
@@ -722,6 +724,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           'diagnosis': medical?['diagnosis'],
           'days_since_surgery': daysSinceSurgery,
           'restrictions': {'allergies': profile?['allergies'] ?? []},
+          'lang': lang,
         }),
       );
 
