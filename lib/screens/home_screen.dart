@@ -9,6 +9,9 @@ import 'symptoms_screen.dart';
 import 'profile_screen.dart';
 import '../theme/app_theme.dart';
 import './onboarding/onboarding_data.dart';
+import 'package:provider/provider.dart';
+import '../services/language_provider.dart';
+import '../l10n/translations.dart';
 
 class HomeScreen extends StatefulWidget {
   
@@ -28,21 +31,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _Tab(CupertinoIcons.person, CupertinoIcons.person_fill, 'Profile'),
   ];
 
-  static const _titles = [
-    'Dashboard',
-    'Reminders',
-    'Food Diary',
-    'Symptoms',
-    'Profile'
-  ];
-
   void navigateTo(int i) {
     HapticFeedback.selectionClick();
     setState(() => _selectedIndex = i);
   }
 
+  List<String> _getTitles(AppLanguage lang) => [
+    Translations.get(lang, 'nav_home'),
+    Translations.get(lang, 'nav_reminders'),
+    Translations.get(lang, 'nav_nutrition'),
+    Translations.get(lang, 'nav_symptoms'),
+    Translations.get(lang, 'nav_profile'),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
@@ -76,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 12),
           Text(
-            _titles[_selectedIndex],
+            _getTitles(lang)[_selectedIndex],
             style: Theme.of(context).appBarTheme.titleTextStyle,
           ),
         ]),
@@ -94,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _BottomNav(
               selectedIndex: _selectedIndex,
               tabs: _tabs,
+              titles: _getTitles(lang),
               onTap: navigateTo,
             ),
           ),
@@ -123,9 +128,10 @@ class _HomeScreenState extends State<HomeScreen> {
 class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final List<_Tab> tabs;
+  final List<String> titles;
   final ValueChanged<int> onTap;
   const _BottomNav(
-      {required this.selectedIndex, required this.tabs, required this.onTap});
+      {required this.selectedIndex, required this.tabs, required this.titles, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +163,7 @@ class _BottomNav extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        tabs[i].label,
+                        titles[i],
                         style: TextStyle(
                           fontSize: 13,  // was 11
                           fontWeight: sel ? FontWeight.w700 : FontWeight.w500,

@@ -1,4 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
+import '../services/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -107,8 +111,14 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
 
   List<DateTime> get _tabs =>
       List.generate(5, (i) => DateTime.now().add(Duration(days: i - 4)));
-  String _day(DateTime d) =>
-      const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1];
+  String _day(DateTime d, AppLanguage lang) {
+    final Map<AppLanguage, List<String>> days = {
+      AppLanguage.en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      AppLanguage.ru: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+      AppLanguage.kk: ['Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сб', 'Жс'],
+    };
+    return days[lang]![d.weekday - 1];
+  }
 
   void _showAddSheet() => showModalBottomSheet(
         context: context,
@@ -137,7 +147,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     setState(() => _aiMealLoading = true);
     try {
       final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/analyze-meal'),
+        Uri.parse(ApiConfig.analyzeMealUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'meals': _todayMeals.map((m) => {'name': m.name, 'type': m.type, 'calories': m.calories}).toList(),
@@ -159,6 +169,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final bottomPadding = MediaQuery.of(context).padding.bottom + 100;
     final today = _todayMeals;
     
@@ -169,9 +180,9 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              Text('Food Diary', style: Theme.of(context).textTheme.displayLarge),
+              Text(Translations.get(lang, 'nav_nutrition'), style: Theme.of(context).textTheme.displayLarge),
               const SizedBox(height: 4),
-              Text('Track your meals and get AI-powered nutrition insights', style: Theme.of(context).textTheme.bodyMedium),
+              Text(Translations.get(lang, 'nutrition_subtitle'), style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -198,7 +209,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                         color: sel ? AppColors.primary : AppColors.divider, width: 0.5)),
-                                child: Text('${_day(e.value)} ${e.value.day}',
+                                child: Text('${_day(e.value, lang)} ${e.value.day}',
                                     style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
@@ -226,37 +237,41 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                       icon: CupertinoIcons.flame,
                       bg: AppColors.calorieBg,
                       color: const Color(0xFFFF9800),
-                      value: '$_cals kcal',
-                      label: 'Calories',
-                      target: _dailyCalories > 0 ? '${_dailyCalories.toInt()} kcal' : null),
+                      value: '$_cals ${Translations.get(lang, 'calories')}',
+                      label: Translations.get(lang, 'calories'),
+                      target: _dailyCalories > 0 ? '${_dailyCalories.toInt()} ${Translations.get(lang, 'calories')}' : null,
+                      lang: lang),
                   _NutrCard(
                       icon: Icons.egg_outlined,
                       bg: AppColors.proteinBg,
                       color: AppColors.accent,
-                      value: '${_protein.toStringAsFixed(1)}g',
-                      label: 'Protein',
-                      target: _dailyProtein > 0 ? '${_dailyProtein.toStringAsFixed(0)}g' : null),
+                      value: '${_protein.toStringAsFixed(1)}${Translations.get(lang, 'grams')}',
+                      label: Translations.get(lang, 'protein'),
+                      target: _dailyProtein > 0 ? '${_dailyProtein.toStringAsFixed(0)}${Translations.get(lang, 'grams')}' : null,
+                      lang: lang),
                   _NutrCard(
                       icon: Icons.grain,
                       bg: AppColors.carbsBg,
                       color: AppColors.primary,
-                      value: '${_carbs.toStringAsFixed(1)}g',
-                      label: 'Carbs',
-                      target: _dailyCarbs > 0 ? '${_dailyCarbs.toStringAsFixed(0)}g' : null),
+                      value: '${_carbs.toStringAsFixed(1)}${Translations.get(lang, 'grams')}',
+                      label: Translations.get(lang, 'carbs'),
+                      target: _dailyCarbs > 0 ? '${_dailyCarbs.toStringAsFixed(0)}${Translations.get(lang, 'grams')}' : null,
+                      lang: lang),
                   _NutrCard(
                       icon: CupertinoIcons.drop,
                       bg: AppColors.fatBg,
                       color: const Color(0xFFFF7043),
-                      value: '${_fat.toStringAsFixed(1)}g',
-                      label: 'Fat',
-                      target: _dailyFat > 0 ? '${_dailyFat.toStringAsFixed(0)}g' : null),
+                      value: '${_fat.toStringAsFixed(1)}${Translations.get(lang, 'grams')}',
+                      label: Translations.get(lang, 'fat'),
+                      target: _dailyFat > 0 ? '${_dailyFat.toStringAsFixed(0)}${Translations.get(lang, 'grams')}' : null,
+                      lang: lang),
                 ],
               ),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Logged Meals', style: Theme.of(context).textTheme.titleLarge),
+                  Text(Translations.get(lang, 'meals_today'), style: Theme.of(context).textTheme.titleLarge),
                   _BouncingWrapper(
                     onTap: _showAddSheet,
                     child: Container(
@@ -266,12 +281,12 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(CupertinoIcons.add, size: 16, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text('Add Meal', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                          const Icon(CupertinoIcons.add, size: 16, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(Translations.get(lang, 'log_meal_btn'), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
                         ]
                       )
                     )
@@ -292,7 +307,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                           setState(() => _logs.remove(m));
                         }))),
               ] else
-                _empty(),
+                _empty(lang),
             ]),
           ),
         ),
@@ -300,7 +315,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  Widget _empty() => Container(
+  Widget _empty(AppLanguage lang) => Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
         decoration: BoxDecoration(
@@ -312,12 +327,12 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
         child: Column(children: [
           const Icon(CupertinoIcons.square_list, size: 48, color: AppColors.divider),
           const SizedBox(height: 24),
-          Text('No meals logged', style: Theme.of(context).textTheme.headlineMedium),
+          Text(Translations.get(lang, 'no_items_added'), style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
-          const Text(
-              'Start tracking your nutrition to get AI-powered insights.',
+          Text(
+              Translations.get(lang, 'nutrition_subtitle'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.45)),
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.45)),
         ]),
       );
 }
@@ -327,13 +342,12 @@ class _NutrCard extends StatelessWidget {
   final Color bg, color;
   final String value, label;
   final String? target;
+  final AppLanguage lang;
+  
   const _NutrCard({
-    required this.icon,
-    required this.bg,
-    required this.color,
-    required this.value,
-    required this.label,
-    this.target,
+    required this.icon, required this.bg, required this.color,
+    required this.value, required this.label, this.target,
+    required this.lang
   });
 
   @override
@@ -370,7 +384,7 @@ class _NutrCard extends StatelessWidget {
                     letterSpacing: -0.5)),
             if (target != null)
               Text(
-                'goal: $target',
+                '${Translations.get(lang, 'goal')}: $target',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -638,7 +652,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
       final base64Image = base64Encode(bytes);
 
       final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/recognize-food'),
+        Uri.parse(ApiConfig.recognizeFoodUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'image': base64Image}),
       ).timeout(const Duration(seconds: 30));
@@ -725,6 +739,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Container(
       decoration: const BoxDecoration(
           color: AppColors.surface,
@@ -751,7 +766,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Log a Meal', style: Theme.of(context).textTheme.headlineMedium),
+                      Text(Translations.get(lang, 'log_meal_btn'), style: Theme.of(context).textTheme.headlineMedium),
                       const SizedBox(height: 4),
                       Text(
                         '${widget.date.day}/${widget.date.month}/${widget.date.year}',
@@ -1007,7 +1022,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                                suffixText: _useUnits ? _selected?.unitLabel ?? 'units' : 'g',
+                                suffixText: _useUnits ? (_selected?.unitLabel == 'pcs' ? Translations.get(lang, 'pieces') : (_selected?.unitLabel == 'packs' ? Translations.get(lang, 'packs') : _selected?.unitLabel ?? 'units')) : Translations.get(lang, 'grams'),
                                 suffixStyle: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                               ),
                             ),
@@ -1025,7 +1040,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                                   color: AppColors.primaryLight,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Text(_useUnits ? 'In grams' : 'In ${_selected!.unitLabel ?? "units"}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                                child: Text(_useUnits ? 'In grams' : 'In ${_selected!.unitLabel == "pcs" ? Translations.get(lang, "pieces") : (_selected!.unitLabel == "packs" ? Translations.get(lang, "packs") : _selected!.unitLabel ?? "units")}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
                               ),
                             ),
                           ],
@@ -1053,10 +1068,10 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _NutrPreview('${_calcCalories.toStringAsFixed(0)}', 'kcal'),
-                            _NutrPreview('${_calcProtein.toStringAsFixed(1)}g', 'protein'),
-                            _NutrPreview('${_calcCarbs.toStringAsFixed(1)}g', 'carbs'),
-                            _NutrPreview('${_calcFat.toStringAsFixed(1)}g', 'fat'),
+                            _NutrPreview('${_calcCalories.toStringAsFixed(0)}', Translations.get(lang, 'calories')),
+                            _NutrPreview('${_calcProtein.toStringAsFixed(1)}${Translations.get(lang, 'grams')}', Translations.get(lang, 'protein')),
+                            _NutrPreview('${_calcCarbs.toStringAsFixed(1)}${Translations.get(lang, 'grams')}', Translations.get(lang, 'carbs')),
+                            _NutrPreview('${_calcFat.toStringAsFixed(1)}${Translations.get(lang, 'grams')}', Translations.get(lang, 'fat')),
                           ],
                         ),
                       ),
@@ -1066,13 +1081,13 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                     if (_mealItems.isNotEmpty) ...[
                       const Divider(height: 1, color: AppColors.divider),
                       const SizedBox(height: 16),
-                      const Text('Current Meal', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                      Text(Translations.get(lang, 'current_meal'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 12),
                       ..._mealItems.map((m) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(children: [
                           Expanded(child: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w500))),
-                          Text('${m.calories} kcal', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                          Text('${m.calories} ${Translations.get(lang, 'calories')}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
                           const SizedBox(width: 12),
                           GestureDetector(
                             onTap: () => setState(() => _mealItems.remove(m)),
@@ -1089,10 +1104,10 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _NutrPreview('${_mealItems.fold(0, (s, m) => s + m.calories)}', 'kcal'),
-                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.protein).toStringAsFixed(1)}g', 'protein'),
-                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.carbs).toStringAsFixed(1)}g', 'carbs'),
-                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.fat).toStringAsFixed(1)}g', 'fat'),
+                            _NutrPreview('${_mealItems.fold(0, (s, m) => s + m.calories)}', Translations.get(lang, 'calories')),
+                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.protein).toStringAsFixed(1)}${Translations.get(lang, 'grams')}', Translations.get(lang, 'protein')),
+                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.carbs).toStringAsFixed(1)}${Translations.get(lang, 'grams')}', Translations.get(lang, 'carbs')),
+                            _NutrPreview('${_mealItems.fold(0.0, (s, m) => s + m.fat).toStringAsFixed(1)}${Translations.get(lang, 'grams')}', Translations.get(lang, 'fat')),
                           ],
                         ),
                       ),
@@ -1121,10 +1136,10 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(CupertinoIcons.add, size: 18, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text('Log Meal', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                    children: [
+                      const Icon(CupertinoIcons.add, size: 18, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(Translations.get(lang, 'log_meal_btn'), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                     ]
                   ),
                 )

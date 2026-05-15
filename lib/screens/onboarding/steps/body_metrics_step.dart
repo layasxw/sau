@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../theme/app_theme.dart';
 import '../onboarding_data.dart';
-import 'personal_info_step.dart'; // reuse FieldLabel, inputDecoration, NavButtons
+import 'personal_info_step.dart';
 import '../../nutrition_calculator.dart';
+import '../../../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../../../l10n/translations.dart';
 
 class BodyMetricsStep extends StatefulWidget {
   final OnboardingData data;
@@ -44,12 +47,13 @@ class _BodyMetricsStepState extends State<BodyMetricsStep> {
   }
 
   void _saveAndContinue() {
+    final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
     final h = double.tryParse(_heightController.text);
     final w = double.tryParse(_weightController.text);
 
     if (h == null || w == null || h <= 0 || w <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter valid height and weight')),
+        SnackBar(content: Text(Translations.get(lang, 'ob_err_metrics'))),
       );
       return;
     }
@@ -62,15 +66,16 @@ class _BodyMetricsStepState extends State<BodyMetricsStep> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          const Text(
-            'Your body metrics',
-            style: TextStyle(
+          Text(
+            Translations.get(lang, 'ob_metrics_title'),
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -78,9 +83,9 @@ class _BodyMetricsStepState extends State<BodyMetricsStep> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'These help us calculate appropriate nutrition and activity levels',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
+          Text(
+            Translations.get(lang, 'ob_metrics_subtitle'),
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 32),
 
@@ -91,7 +96,7 @@ class _BodyMetricsStepState extends State<BodyMetricsStep> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const FieldLabel('Height (cm)'),
+                    FieldLabel(Translations.get(lang, 'ob_height')),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _heightController,
@@ -110,7 +115,7 @@ class _BodyMetricsStepState extends State<BodyMetricsStep> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const FieldLabel('Weight (kg)'),
+                    FieldLabel(Translations.get(lang, 'ob_weight')),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _weightController,

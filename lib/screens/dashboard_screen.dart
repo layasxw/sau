@@ -6,6 +6,10 @@ import '../services/firestore_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
+import '../services/api_config.dart';
 
 class DashboardScreen extends StatefulWidget {
   final void Function(int)? onNavigate;
@@ -128,33 +132,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  String get _todayLabel {
+  String _getTodayLabel(AppLanguage lang) {
     final n = DateTime.now();
-    const days   = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    const months = ['January','February','March','April','May','June','July',
-        'August','September','October','November','December'];
-    return '${days[n.weekday - 1]}, ${months[n.month - 1]} ${n.day}';
+    final Map<AppLanguage, List<String>> days = {
+      AppLanguage.en: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      AppLanguage.ru: ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
+      AppLanguage.kk: ['Дүйсенбі', 'Сейсенбі', 'Сәрсенбі', 'Бейсенбі', 'Жұма', 'Сенбі', 'Жексенбі'],
+    };
+    final Map<AppLanguage, List<String>> months = {
+      AppLanguage.en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+      AppLanguage.ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+      AppLanguage.kk: ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'],
+    };
+    final d = days[lang]![n.weekday - 1];
+    final m = months[lang]![n.month - 1];
+    if (lang == AppLanguage.en) return '$d, $m ${n.day}';
+    return '$d, ${n.day} $m';
   }
 
   // логика фразы для карточки
-  String get _motivationPhrase {
-    if (_todaySymptomsHigh) {
-      return 'Your doctor is aware. Take care of yourself today 💙';
-    }
-    if (_todayHasFood && _todayHasSymptoms) {
-      return 'Great day — you logged everything. Keep it up!';
-    }
-    if (_todayHasFood && !_todayHasSymptoms) {
-      return 'Don\'t forget to log how you feel today';
-    }
-    return 'How are you feeling today?';
+  String _getMotivationPhrase(AppLanguage lang) {
+    if (_todaySymptomsHigh) return Translations.get(lang, 'motivation_care');
+    if (_todayHasFood && _todayHasSymptoms) return Translations.get(lang, 'motivation_great');
+    if (_todayHasFood && !_todayHasSymptoms) return Translations.get(lang, 'motivation_log_symptoms');
+    return Translations.get(lang, 'motivation_how_feeling');
   }
 
-  String? get _rehabDaysText {
+  String? _getRehabDaysText(AppLanguage lang) {
     if (_surgeryDate == null) return null;
     final days = DateTime.now().difference(_surgeryDate!).inDays;
     if (days < 0) return null;
-    return 'Rehabilitation day $days';
+    return '${Translations.get(lang, 'rehab_day')} $days';
   }
 
   Future<void> _analyzeRecovery() async {
@@ -173,7 +181,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final meals    = results[3] as List<Map<String, dynamic>>;
 
       final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/analyze'),
+        Uri.parse(ApiConfig.analyzeUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'profile':          _toJson(profile),
@@ -200,6 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final bottomPadding = MediaQuery.of(context).padding.bottom + 80;
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
@@ -208,21 +217,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              _buildHeader(),
+              _buildHeader(lang),
               const SizedBox(height: 24),
-              _buildMotivationCard(),
+              _buildMotivationCard(lang),
               if (_doctorMessage != null) ...[
                 const SizedBox(height: 16),
-                _buildDoctorMessage(),
+                _buildDoctorMessage(lang),
               ],
               const SizedBox(height: 24),
-              _buildHealthStatus(),
+              _buildHealthStatus(lang),
               const SizedBox(height: 24),
-              _buildAIInsights(),
+              _buildAIInsights(lang),
               const SizedBox(height: 24),
-              _buildQuickActionsTitle(),
+              _buildQuickActionsTitle(lang),
               const SizedBox(height: 16),
-              _buildQuickActions(),
+              _buildQuickActions(lang),
               const SizedBox(height: 100),
             ]),
           ),
@@ -231,7 +240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildHeader() => Column(
+  Widget _buildHeader(AppLanguage lang) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Row(
@@ -240,10 +249,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hello, ${_fullName?.split(' ')[0] ?? ''}!',
+              Text('${Translations.get(lang, 'hello')} ${_fullName?.split(' ')[0] ?? ''}!',
                   style: Theme.of(context).textTheme.displayLarge),
               const SizedBox(height: 4),
-              Text(_todayLabel, style: Theme.of(context).textTheme.bodyMedium),
+              Text(_getTodayLabel(lang), style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
           _CircleIconButton(icon: CupertinoIcons.bell, onTap: () => _go(1)),
@@ -252,89 +261,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ],
   );
 
-  Widget _buildMotivationCard() {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        gradient: AppGradients.primary,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: _cardLoading
-          ? const Center(
-              child: SizedBox(
-                width: 24, height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildMotivationCard(AppLanguage lang) {
+    if (_cardLoading) return _LoadingCard();
+    return _BouncingWrapper(
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        decoration: BoxDecoration(
+          gradient: AppGradients.primary,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // иконка сердца
                 Container(
-                  width: 44,
-                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(CupertinoIcons.heart_fill, color: Colors.white, size: 22),
-                ),
-                const SizedBox(height: 20),
-                // имя
-                Text(
-                  _fullName?.split(' ')[0] ?? '',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  child: Text(
+                    _getTodayLabel(lang),
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(height: 6),
-                // фраза
-                Text(
-                  _motivationPhrase,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                    letterSpacing: -0.3,
+                if (_getRehabDaysText(lang) != null)
+                  Text(
+                    _getRehabDaysText(lang)!,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
-                ),
-                if (_rehabDaysText != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _rehabDaysText!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
+            const SizedBox(height: 24),
+            Text(
+              _getMotivationPhrase(lang),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildHealthStatus() => Row(
+  Widget _buildHealthStatus(AppLanguage lang) => Row(
     children: [
       Expanded(child: _HealthCard(
-        label: 'Reminders',
+        label: Translations.get(lang, 'nav_reminders'),
         value: '$_remindersCount',
         icon: CupertinoIcons.calendar,
         color: const Color(0xFF6366F1),
@@ -342,7 +331,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       )),
       const SizedBox(width: 16),
       Expanded(child: _HealthCard(
-        label: 'Diagnosis',
+        label: Translations.get(lang, 'nav_symptoms'),
         value: _diagnosis ?? '—',
         icon: CupertinoIcons.heart_fill,
         color: const Color(0xFFF43F5E),
@@ -351,7 +340,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ],
   );
 
-  Widget _buildAIInsights() {
+  Widget _buildAIInsights(AppLanguage lang) {
     final risk = _aiData?['risk'] as String?;
     final riskColor = risk == 'high'
         ? AppColors.accent
@@ -380,24 +369,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: const Icon(CupertinoIcons.sparkles, color: Colors.white, size: 22),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(child: Text('AI Recovery Insights',
+                    Expanded(child: Text(Translations.get(lang, 'ai_recovery_insights'),
                         style: Theme.of(context).textTheme.titleLarge)),
                     if (risk != null) _Badge(label: risk.toUpperCase(), color: riskColor),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('Dynamic analysis based on your symptoms and diet.',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                Text(Translations.get(lang, 'ai_analysis_desc'),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                 if (_aiData != null) ...[
                   const SizedBox(height: 20),
                   _AIInsightRow(icon: CupertinoIcons.graph_circle,
-                      label: 'Optimization', text: _aiData!['status'] ?? 'Analyzing...'),
+                      label: Translations.get(lang, 'optimization'), text: _aiData!['status'] ?? Translations.get(lang, 'ai_analyzing')),
                   _AIInsightRow(icon: CupertinoIcons.exclamationmark_triangle,
-                      label: 'Concerns', text: _aiData!['concerns'] ?? 'No concerns found'),
+                      label: Translations.get(lang, 'concerns'), text: _aiData!['concerns'] ?? Translations.get(lang, 'ai_no_concerns')),
                   const SizedBox(height: 8),
-                  const Text(
-                    'This is not medical advice. Please consult your doctor.',
-                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+                  Text(
+                    Translations.get(lang, 'medical_advice_disclaimer'),
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
                   ),
                 ],
               ],
@@ -424,8 +413,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ? const SizedBox(
                           width: 20, height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
-                      : const Text('Update Insights',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                      : Text(Translations.get(lang, 'update_insights'),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
                 ),
               ),
             ),
@@ -435,19 +424,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickActionsTitle() => Padding(
+  Widget _buildQuickActionsTitle(AppLanguage lang) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 4),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text('Quick Actions', style: Theme.of(context).textTheme.headlineMedium),
-        TextButton(onPressed: () {}, child: const Text('View All',
-            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
+        Text(Translations.get(lang, 'quick_actions'), style: Theme.of(context).textTheme.headlineMedium),
+        TextButton(onPressed: () {}, child: Text(Translations.get(lang, 'view_all'),
+            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
       ],
     ),
   );
 
-  Widget _buildQuickActions() => GridView.count(
+  Widget _buildQuickActions(AppLanguage lang) => GridView.count(
     crossAxisCount: 2,
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
@@ -455,44 +444,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
     crossAxisSpacing: 16,
     childAspectRatio: 1.5,
     children: [
-      _ActionCard(icon: CupertinoIcons.add,               label: 'Log Meal',     color: const Color(0xFF10B981).withOpacity(0.1), iconColor: const Color(0xFF10B981), onTap: () => _go(2)),
-      _ActionCard(icon: CupertinoIcons.waveform_path_ecg, label: 'Log Symptom',  color: const Color(0xFF6366F1).withOpacity(0.1), iconColor: const Color(0xFF6366F1), onTap: () => _go(3)),
-      _ActionCard(icon: CupertinoIcons.bell,              label: 'Add Reminder', color: const Color(0xFFF59E0B).withOpacity(0.1), iconColor: const Color(0xFFF59E0B), onTap: () => _go(1)),
-      _ActionCard(icon: CupertinoIcons.chart_bar_square,  label: 'View Trends',  color: const Color(0xFFEC4899).withOpacity(0.1), iconColor: const Color(0xFFEC4899), onTap: () => _go(3)),
+      _ActionCard(icon: CupertinoIcons.add,               label: Translations.get(lang, 'log_meal'),     color: const Color(0xFF10B981).withOpacity(0.1), iconColor: const Color(0xFF10B981), onTap: () => _go(2)),
+      _ActionCard(icon: CupertinoIcons.waveform_path_ecg, label: Translations.get(lang, 'log_symptom'),  color: const Color(0xFF6366F1).withOpacity(0.1), iconColor: const Color(0xFF6366F1), onTap: () => _go(3)),
+      _ActionCard(icon: CupertinoIcons.bell,              label: Translations.get(lang, 'add_reminder'), color: const Color(0xFFF59E0B).withOpacity(0.1), iconColor: const Color(0xFFF59E0B), onTap: () => _go(1)),
+      _ActionCard(icon: CupertinoIcons.chart_bar_square,  label: Translations.get(lang, 'view_trends'),  color: const Color(0xFFEC4899).withOpacity(0.1), iconColor: const Color(0xFFEC4899), onTap: () => _go(3)),
     ],
   );
 
-  Widget _buildDoctorMessage() => Container(
+  Widget _buildDoctorMessage(AppLanguage lang) => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: AppColors.primary.withOpacity(0.1)),
     ),
-    child: Row(
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.primaryLight,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(CupertinoIcons.person_fill, color: AppColors.primary, size: 16),
+        Row(
+          children: [
+            const Icon(CupertinoIcons.chat_bubble_2_fill, color: AppColors.primary, size: 20),
+            const SizedBox(width: 10),
+            Text(Translations.get(lang, 'doctor_message_title'),
+                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Message from your doctor',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
-              const SizedBox(height: 4),
-              Text(_doctorMessage!,
-                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4)),
-            ],
-          ),
-        ),
+        const SizedBox(height: 12),
+        Text(_doctorMessage!, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.4)),
       ],
     ),
   );
@@ -644,4 +622,20 @@ class _BouncingWrapperState extends State<_BouncingWrapper> with SingleTickerPro
     onTapCancel: () => _controller.reverse(),
     child: ScaleTransition(scale: _scale, child: widget.child),
   );
+}
+
+class _LoadingCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 160,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppColors.divider, width: 0.5),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+        ),
+      );
 }

@@ -7,6 +7,9 @@ import 'steps/body_metrics_step.dart';
 import 'steps/diagnosis_step.dart';
 import 'steps/restrictions_step.dart';
 import '../../services/firestore_service.dart';
+import '../../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../../l10n/translations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHELL — owns _currentStep and _data, renders header + active step
@@ -98,20 +101,30 @@ class _StepHeader extends StatelessWidget {
   // Metadata for each step bubble: icon + label
   // Using a simple list of records (Dart 3 syntax)
   static const _steps = [
-    (icon: Icons.person_outline, label: 'Personal Info'),
-    (icon: Icons.monitor_heart_outlined, label: 'Body Metrics'),
-    (icon: Icons.favorite_border, label: 'Diagnosis'),
-    (icon: Icons.apple_outlined, label: 'Restrictions'),
+    (icon: Icons.person_outline, labelKey: 'step_personal'),
+    (icon: Icons.monitor_heart_outlined, labelKey: 'step_metrics'),
+    (icon: Icons.favorite_border, labelKey: 'step_diagnosis'),
+    (icon: Icons.apple_outlined, labelKey: 'step_restrictions'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Container(
       color: AppColors.surface,
       child: SafeArea(
         bottom: false, // only respect top safe area (notch/status bar)
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _LanguageToggle(),
+                ],
+              ),
+            ),
             // ── 4 step bubbles ──────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -149,7 +162,7 @@ class _StepHeader extends StatelessWidget {
 
                       // ── Label under bubble ───────────────────────────────
                       Text(
-                        _steps[i].label,
+                        Translations.get(lang, _steps[i].labelKey),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight:
@@ -185,3 +198,53 @@ class _StepHeader extends StatelessWidget {
     );
   }
 }
+
+class _LanguageToggle extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final langProv = Provider.of<LanguageProvider>(context);
+    final current = langProv.currentLanguage;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F4F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _langBtn(context, AppLanguage.ru, 'RU', current == AppLanguage.ru),
+          _langBtn(context, AppLanguage.kk, 'KZ', current == AppLanguage.kk),
+          _langBtn(context, AppLanguage.en, 'EN', current == AppLanguage.en),
+        ],
+      ),
+    );
+  }
+
+  Widget _langBtn(BuildContext context, AppLanguage lang, String label, bool active) {
+    return GestureDetector(
+      onTap: () => Provider.of<LanguageProvider>(context, listen: false).setLanguage(lang),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: active ? [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+          ] : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            color: active ? AppColors.primary : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

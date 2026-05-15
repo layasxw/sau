@@ -4,14 +4,17 @@ import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
+import '../services/api_config.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER FUNCTION — converts a type string into icon + colors
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// HELPER FUNCTION вЂ” converts a type string into icon + colors
 // Lives outside all classes because it's just a pure utility function.
 // Can't save IconData to Firestore, so we store the type string ("Medication")
 // and convert it back to an icon every time we load from Firestore.
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 ({IconData icon, Color bg, Color color}) _iconForType(String type) {
   switch (type) {
     case 'Medication':
@@ -31,12 +34,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 // DATA MODEL
-// Represents one reminder in memory (not in Firestore — that's a Map).
+// Represents one reminder in memory (not in Firestore вЂ” that's a Map).
 // type is stored so we can save it to Firestore and recreate icons on load.
-// id comes from Firestore document id — needed for delete and update.
-// ─────────────────────────────────────────────────────────────────────────────
+// id comes from Firestore document id вЂ” needed for delete and update.
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 class _Reminder {
   final String id;
   final String type;
@@ -62,9 +65,9 @@ class _Reminder {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 // SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
   @override
@@ -73,13 +76,13 @@ class RemindersScreen extends StatefulWidget {
 
 class _RemindersScreenState extends State<RemindersScreen> {
   // _items holds all reminders loaded from Firestore.
-  // Starts empty — filled by _loadReminders() in initState.
+  // Starts empty вЂ” filled by _loadReminders() in initState.
   List<_Reminder> _items = [];
   int _filter = 0;
-  static const _filters = ['All', 'Today', 'Upcoming', 'Completed'];
+  static const _filterKeys = ['filter_all', 'filter_today', 'filter_upcoming', 'filter_completed'];
   List<Map<String, dynamic>> _suggestedReminders = [];
   bool _suggestionsLoading = false;
-  // _visible is a getter — it re-filters _items every time build() runs.
+  // _visible is a getter вЂ” it re-filters _items every time build() runs.
   // A getter is like a variable that computes its value on demand.
   List<_Reminder> get _visible {
     switch (_filter) {
@@ -106,7 +109,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
   Future<void> _loadReminders() async {
     final data = await FirestoreService.getReminders();
     setState(() {
-      // No var here — we're assigning to the class-level _items, not creating new local variable
+      // No var here вЂ” we're assigning to the class-level _items, not creating new local variable
       _items = data.map((r) {
         final meta = _iconForType(r['type'] ?? 'Other');
         return _Reminder(
@@ -130,21 +133,21 @@ class _RemindersScreenState extends State<RemindersScreen> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        // onAdd receives a _Reminder from _AddSheet.
-        // We save it to Firestore first, then reload the list.
         builder: (_) => _AddSheet(
-          onAdd: (r) async {
-            await FirestoreService.addReminder({
-              'title':       r.title,
-              'type':        r.type,   // type is now available through r.type
-              'recurrence':  r.recurrence,
-              'time':        r.time,
-              'description': r.description,
-              'hasAiBadge':  false,
-              'completed':   false,
-              'createdAt':   FieldValue.serverTimestamp(),
-            });
-            _loadReminders(); // reload so the new reminder appears
+          onAddMultiple: (reminders) async {
+            for (final r in reminders) {
+              await FirestoreService.addReminder({
+                'title':       r.title,
+                'type':        r.type,
+                'recurrence':  r.recurrence,
+                'time':        r.time,
+                'description': r.description,
+                'hasAiBadge':  false,
+                'completed':   false,
+                'createdAt':   FieldValue.serverTimestamp(),
+              });
+            }
+            _loadReminders();
           },
         ),
       );
@@ -183,7 +186,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
         if (todaySymptoms.isEmpty && todayMeals.isEmpty) return;
 
         final response = await http.post(
-          Uri.parse('https://sau-production.up.railway.app/suggest-reminders'),
+          Uri.parse(ApiConfig.suggestRemindersUrl),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'symptoms': {
@@ -197,9 +200,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          debugPrint('=== suggest-reminders response: $data ==='); // временно
+          debugPrint('=== suggest-reminders response: $data ==='); // РІСЂРµРјРµРЅРЅРѕ
           final raw = data['reminders'];
-          if (raw == null) return; // ← добавь это
+          if (raw == null) return; // в†ђ РґРѕР±Р°РІСЊ СЌС‚Рѕ
           final reminders = List<Map<String, dynamic>>.from(raw);
           await FirestoreService.saveSuggestedReminders(reminders);
           setState(() => _suggestedReminders = reminders);
@@ -213,19 +216,20 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final list = _visible;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Reminders',
-            style: TextStyle(
+        Text(Translations.get(lang, 'nav_reminders'),
+            style: const TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
                 letterSpacing: -0.5)),
         const SizedBox(height: 4),
-        const Text('Manage your medication, appointments, and daily tasks',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+        Text(Translations.get(lang, 'reminders_subtitle'),
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
@@ -233,7 +237,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           child: ElevatedButton.icon(
             onPressed: _showAddSheet,
             icon: const Icon(Icons.add, size: 20),
-            label: const Text('Add Reminder'),
+            label: Text(Translations.get(lang, 'add_reminder_btn')),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -251,10 +255,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
             decoration: BoxDecoration(
                 color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(14)),
-            child: const Row(children: [
-              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-              SizedBox(width: 10),
-              Text('Getting AI suggestions...', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+            child: Row(children: [
+              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 10),
+              Text(Translations.get(lang, 'ai_suggestions_loading'), style: const TextStyle(fontSize: 13, color: AppColors.primary)),
             ]),
           ),
         ] else if (_suggestedReminders.isNotEmpty) ...[
@@ -266,15 +270,15 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.primary.withOpacity(0.2))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Row(children: [
-                Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
-                SizedBox(width: 6),
-                Text('AI Suggested Reminders',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              Row(children: [
+                const Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
+                const SizedBox(width: 6),
+                Text(Translations.get(lang, 'ai_suggestions_title'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
               ]),
               const SizedBox(height: 4),
-              const Text('Based on your symptoms and meals today',
-                  style: TextStyle(fontSize: 12, color: AppColors.primary)),
+              Text(Translations.get(lang, 'ai_suggestions_desc'),
+                  style: const TextStyle(fontSize: 12, color: AppColors.primary)),
               const SizedBox(height: 12),
               ..._suggestedReminders.map((r) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -288,7 +292,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () async {
-                      final meta = _iconForType('Other');
                       await FirestoreService.addReminder({
                         'title': r['title'],
                         'type': 'Other',
@@ -307,16 +310,16 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       decoration: BoxDecoration(
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(20)),
-                      child: const Text('Add', style: TextStyle(
+                      child: Text(Translations.get(lang, 'add_btn'), style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ),
                 ]),
               )),
               const SizedBox(height: 12),
-              const Text(
-                'This is not medical advice. Please consult your doctor.',
-                style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+              Text(
+                Translations.get(lang, 'medical_advice_disclaimer'),
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
               ),
             ]),
           ),
@@ -326,7 +329,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-              children: List.generate(_filters.length, (i) {
+              children: List.generate(_filterKeys.length, (i) {
             final sel = i == _filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -342,7 +345,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     border: Border.all(
                         color: sel ? AppColors.primary : AppColors.divider),
                   ),
-                  child: Text(_filters[i],
+                  child: Text(Translations.get(lang, _filterKeys[i]),
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -361,12 +364,12 @@ class _RemindersScreenState extends State<RemindersScreen> {
             decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(16)),
-            child: const Column(children: [
-              Icon(Icons.notifications_off_outlined,
+            child: Column(children: [
+              const Icon(Icons.notifications_off_outlined,
                   size: 48, color: AppColors.divider),
-              SizedBox(height: 12),
-              Text('No reminders here',
-                  style: TextStyle(
+              const SizedBox(height: 12),
+              Text(Translations.get(lang, 'no_reminders'),
+                  style: const TextStyle(
                       fontSize: 15, color: AppColors.textSecondary)),
             ]),
           )
@@ -393,11 +396,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 // REMINDER CARD
-// A StatelessWidget — receives a _Reminder and two callbacks.
+// A StatelessWidget вЂ” receives a _Reminder and two callbacks.
 // Doesn't know anything about Firestore. Just displays data and calls callbacks.
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 class _Card extends StatelessWidget {
   final _Reminder item;
   final VoidCallback onDelete, onToggle;
@@ -488,7 +491,7 @@ class _Card extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20)),
                         child: Text(
                             item.recurrence == 'Once' && item.onceDate != null
-                                ? 'Once · ${item.onceDate!.day.toString().padLeft(2, '0')}.${item.onceDate!.month.toString().padLeft(2, '0')}.${item.onceDate!.year}'
+                                ? 'Once В· ${item.onceDate!.day.toString().padLeft(2, '0')}.${item.onceDate!.month.toString().padLeft(2, '0')}.${item.onceDate!.year}'
                                 : item.recurrence,
                             style: const TextStyle(
                                 fontSize: 12,
@@ -515,14 +518,12 @@ class _Card extends StatelessWidget {
       );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ADD REMINDER SHEET
-// Collects user input and calls onAdd with a _Reminder object.
-// Doesn't talk to Firestore directly — that's the screen's job.
-// ─────────────────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ADD REMINDER SHEET вЂ” supports multiple daily doses for medications
+// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 class _AddSheet extends StatefulWidget {
-  final void Function(_Reminder) onAdd;
-  const _AddSheet({required this.onAdd});
+  final void Function(List<_Reminder>) onAddMultiple;
+  const _AddSheet({required this.onAddMultiple});
   @override
   State<_AddSheet> createState() => _AddSheetState();
 }
@@ -531,14 +532,27 @@ class _AddSheetState extends State<_AddSheet> {
   final _title = TextEditingController();
   final _desc  = TextEditingController();
   String _type = 'Medication', _rec = 'Daily';
-  TimeOfDay _time = const TimeOfDay(hour: 8, minute: 0);
   DateTime? _onceDate;
+
+  // Multi-dose state: 1 to 4 times per day
+  int _timesPerDay = 1;
+  // Parallel list of times for each dose
+  List<TimeOfDay> _times = [const TimeOfDay(hour: 8, minute: 0)];
 
   static const _types = [
     'Medication', 'Doctor appointment', 'Lab test',
     'Physical activity', 'Dietary', 'Sleep', 'Other'
   ];
-  static const _recs = ['Once', 'Daily', 'Weekly', 'Monthly'];
+  static const _recKeys = ['recurrence_once', 'recurrence_daily', 'recurrence_weekly', 'recurrence_monthly'];
+  static const _recs    = ['Once', 'Daily', 'Weekly', 'Monthly'];
+
+  // Default time presets for each dose count (index 0 = 1x/day, etc.)
+  static const _defaultTimes = [
+    [TimeOfDay(hour: 8, minute: 0)],
+    [TimeOfDay(hour: 8, minute: 0), TimeOfDay(hour: 20, minute: 0)],
+    [TimeOfDay(hour: 8, minute: 0), TimeOfDay(hour: 14, minute: 0), TimeOfDay(hour: 20, minute: 0)],
+    [TimeOfDay(hour: 8, minute: 0), TimeOfDay(hour: 12, minute: 0), TimeOfDay(hour: 17, minute: 0), TimeOfDay(hour: 21, minute: 0)],
+  ];
 
   static const _commonMeds = [
     'Omeprazole',
@@ -554,8 +568,6 @@ class _AddSheetState extends State<_AddSheet> {
   ];
   String? _selectedMed;
 
-  // _meta maps type string → (icon, bg color, icon color)
-  // Used to set the correct icon when creating the _Reminder object
   static const _meta = {
     'Medication':         (Icons.medication_outlined,      Color(0xFFEDE7F6), Color(0xFF7E57C2)),
     'Doctor appointment': (Icons.local_hospital_outlined,  Color(0xFFFFEBEE), Color(0xFFE53935)),
@@ -566,13 +578,29 @@ class _AddSheetState extends State<_AddSheet> {
     'Other':              (Icons.notifications_outlined,   Color(0xFFF0F4F5), AppColors.textSecondary),
   };
 
+  void _setTimesPerDay(int n) {
+    setState(() {
+      _timesPerDay = n;
+      _times = List<TimeOfDay>.from(_defaultTimes[n - 1]);
+      // Auto-set recurrence to Daily for multi-dose
+      if (n > 1) _rec = 'Daily';
+    });
+  }
+
+  Future<void> _pickTime(int index) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _times[index],
+    );
+    if (picked != null) setState(() => _times[index] = picked);
+  }
+
   InputDecoration _dec(String hint) => InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.textSecondary),
         filled: true,
         fillColor: AppColors.background,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none),
@@ -581,12 +609,14 @@ class _AddSheetState extends State<_AddSheet> {
             borderSide: const BorderSide(color: AppColors.divider)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: AppColors.primary, width: 1.5)),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
       );
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
+    final isMed = _type == 'Medication';
+    return Container(
         decoration: const BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -596,32 +626,36 @@ class _AddSheetState extends State<_AddSheet> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+          // Drag handle
           Center(
               child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 40, height: 4,
                   decoration: BoxDecoration(
                       color: AppColors.divider,
                       borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
-          const Text('New Reminder',
-              style: TextStyle(
+          Text(Translations.get(lang, 'new_reminder'),
+              style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 20),
-          const Text('Title',
-              style: TextStyle(
+
+          // в”Ђв”Ђ Medication picker or text field в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          Text(Translations.get(lang, 'reminder_title_label'),
+              style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          if (_type == 'Medication') ...[
+          if (isMed) ...[
             DropdownButtonFormField<String>(
               value: _selectedMed,
-              decoration: _dec('Select medication'),
+              decoration: _dec(Translations.get(lang, 'select_medication')),
               isExpanded: true,
-              items: _commonMeds.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+              items: _commonMeds
+                  .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                  .toList(),
               onChanged: (v) {
                 setState(() {
                   _selectedMed = v;
@@ -635,14 +669,18 @@ class _AddSheetState extends State<_AddSheet> {
             ),
             if (_selectedMed == 'Other (enter manually)') const SizedBox(height: 8),
           ],
-          if (_type != 'Medication' || _selectedMed == 'Other (enter manually)')
+          if (!isMed || _selectedMed == 'Other (enter manually)')
             TextField(
                 controller: _title,
-                decoration: _dec(_type == 'Medication' ? 'Enter medication name' : 'e.g. Morning medication'),
+                decoration: _dec(isMed
+                    ? Translations.get(lang, 'enter_medication')
+                    : 'e.g. Morning medication'),
                 textCapitalization: TextCapitalization.sentences),
           const SizedBox(height: 16),
-          const Text('Type',
-              style: TextStyle(
+
+          // в”Ђв”Ђ Type в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          Text(Translations.get(lang, 'type'),
+              style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary)),
@@ -658,70 +696,181 @@ class _AddSheetState extends State<_AddSheet> {
                     if (_type != 'Medication') {
                       _selectedMed = null;
                       _title.clear();
+                      _timesPerDay = 1;
+                      _times = [const TimeOfDay(hour: 8, minute: 0)];
                     }
                   })),
           const SizedBox(height: 16),
-          Row(children: [
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  const Text('Repeat',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                      initialValue: _rec,
-                      decoration: _dec(''),
-                      items: _recs
-                          .map((r) =>
-                              DropdownMenuItem(value: r, child: Text(r)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _rec = v!)),
-                ])),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  const Text('Time',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary)),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () async {
-                      final p = await showTimePicker(
-                          context: context, initialTime: _time);
-                      if (p != null) setState(() => _time = p);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 15),
+
+          // в”Ђв”Ђ Times per day (medication only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          if (isMed) ...[
+            Text(Translations.get(lang, 'times_per_day'),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 10),
+            Row(
+              children: List.generate(4, (i) {
+                final n = i + 1;
+                final sel = n == _timesPerDay;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => _setTimesPerDay(n),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: 56, height: 44,
                       decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.divider)),
-                      child: Row(children: [
-                        const Icon(Icons.access_time,
-                            size: 18, color: AppColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Text(_time.format(context),
-                            style: const TextStyle(
+                        color: sel ? AppColors.primary : AppColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: sel ? AppColors.primary : AppColors.divider),
+                      ),
+                      child: Center(
+                        child: Text('${n}Г—',
+                            style: TextStyle(
                                 fontSize: 15,
-                                color: AppColors.textPrimary)),
-                      ]),
+                                fontWeight: FontWeight.w700,
+                                color: sel
+                                    ? Colors.white
+                                    : AppColors.textSecondary)),
+                      ),
                     ),
                   ),
-                ])),
-          ]),
-          if (_rec == 'Once') ...[
+                );
+              }),
+            ),
             const SizedBox(height: 16),
-            const Text('Date',
-                style: TextStyle(
+
+            // в”Ђв”Ђ Dose time slots в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            Text(Translations.get(lang, 'dose_times'),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: List.generate(_timesPerDay, (i) {
+                return GestureDetector(
+                  onTap: () => _pickTime(i),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppColors.primary.withOpacity(0.3))),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('Dose ${i + 1}',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.access_time,
+                          size: 14, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(_times[i].format(context),
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary)),
+                    ]),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // в”Ђв”Ђ Repeat & single time (non-medication) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          if (!isMed) ...[
+            Row(children: [
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(Translations.get(lang, 'repeat'),
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                        initialValue: _rec,
+                        decoration: _dec(''),
+                        items: List.generate(
+                            _recs.length,
+                            (i) => DropdownMenuItem(
+                                value: _recs[i],
+                                child: Text(
+                                    Translations.get(lang, _recKeys[i])))),
+                        onChanged: (v) => setState(() => _rec = v!)),
+                  ])),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(Translations.get(lang, 'time'),
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => _pickTime(0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 15),
+                        decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.divider)),
+                        child: Row(children: [
+                          const Icon(Icons.access_time,
+                              size: 18, color: AppColors.textSecondary),
+                          const SizedBox(width: 8),
+                          Text(_times[0].format(context),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  color: AppColors.textPrimary)),
+                        ]),
+                      ),
+                    ),
+                  ])),
+            ]),
+          ],
+
+          // в”Ђв”Ђ Repeat dropdown (medication) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          if (isMed) ...[
+            Text(Translations.get(lang, 'repeat'),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+                initialValue: _rec,
+                decoration: _dec(''),
+                items: List.generate(
+                    _recs.length,
+                    (i) => DropdownMenuItem(
+                        value: _recs[i],
+                        child:
+                            Text(Translations.get(lang, _recKeys[i])))),
+                onChanged: (v) => setState(() => _rec = v!)),
+            const SizedBox(height: 16),
+          ],
+
+          // в”Ђв”Ђ Once date picker в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          if (_rec == 'Once') ...[
+            const SizedBox(height: 4),
+            Text(Translations.get(lang, 'date'),
+                style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary)),
@@ -731,13 +880,16 @@ class _AddSheetState extends State<_AddSheet> {
                 final picked = await showDatePicker(
                   context: context,
                   initialDate: _onceDate ?? DateTime.now(),
-                  firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                  lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                  firstDate:
+                      DateTime.now().subtract(const Duration(days: 1)),
+                  lastDate:
+                      DateTime.now().add(const Duration(days: 365 * 2)),
                 );
                 if (picked != null) setState(() => _onceDate = picked);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 15),
                 decoration: BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.circular(12),
@@ -748,7 +900,7 @@ class _AddSheetState extends State<_AddSheet> {
                   const SizedBox(width: 8),
                   Text(
                     _onceDate == null
-                        ? 'Select date'
+                        ? Translations.get(lang, 'select_date')
                         : '${_onceDate!.day.toString().padLeft(2, '0')}.${_onceDate!.month.toString().padLeft(2, '0')}.${_onceDate!.year}',
                     style: TextStyle(
                         fontSize: 15,
@@ -766,19 +918,21 @@ class _AddSheetState extends State<_AddSheet> {
                 ]),
               ),
             ),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 16),
-          const Text('Notes (optional)',
-              style: TextStyle(
+
+          // в”Ђв”Ђ Notes в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+          Text(Translations.get(lang, 'notes'),
+              style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           TextField(
-              controller: _desc,
-              maxLines: 3,
-              decoration: _dec('Any notes about this reminder...')),
+              controller: _desc, maxLines: 3, decoration: _dec('')),
           const SizedBox(height: 24),
+
+          // в”Ђв”Ђ Save button в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -786,9 +940,12 @@ class _AddSheetState extends State<_AddSheet> {
               onPressed: () {
                 if (_title.text.trim().isEmpty) return;
                 final m = _meta[_type]!;
-                // Pass a _Reminder to the screen's onAdd callback.
-                // id is empty string here — Firestore generates the real id on save.
-                widget.onAdd(_Reminder(
+                final desc = _desc.text.trim().isEmpty
+                    ? Translations.get(lang, 'no_notes')
+                    : _desc.text.trim();
+
+                // Build one _Reminder per time slot
+                final reminders = _times.map((t) => _Reminder(
                   id:          '',
                   type:        _type,
                   icon:        m.$1,
@@ -796,12 +953,12 @@ class _AddSheetState extends State<_AddSheet> {
                   iconColor:   m.$3,
                   title:       _title.text.trim(),
                   recurrence:  _rec,
-                  time:        _time.format(context),
+                  time:        t.format(context),
                   onceDate:    _rec == 'Once' ? _onceDate : null,
-                  description: _desc.text.trim().isEmpty
-                      ? 'No notes.'
-                      : _desc.text.trim(),
-                ));
+                  description: desc,
+                )).toList();
+
+                widget.onAddMultiple(reminders);
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
@@ -810,11 +967,11 @@ class _AddSheetState extends State<_AddSheet> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   elevation: 0),
-              child: const Text('Save Reminder',
-                  style: TextStyle(
+              child: Text(Translations.get(lang, 'save_reminder'),
+                  style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
-        ])),
-      );
+        ])));
+  }
 }

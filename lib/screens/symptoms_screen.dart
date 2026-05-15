@@ -9,7 +9,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'speech_service.dart'; // ← conditional import, safe on all platforms
+import 'speech_service.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
+import '../services/api_config.dart';
 
 class _Log {
   final String id;
@@ -132,6 +136,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final bottomPadding = MediaQuery.of(context).padding.bottom + 100;
 
     return Stack(
@@ -143,11 +148,11 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
               padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  Text('Symptom Tracking',
+                  Text(Translations.get(lang, 'nav_symptoms'),
                       style: Theme.of(context).textTheme.displayLarge),
                   const SizedBox(height: 4),
                   Text(
-                      'Monitor your daily symptoms and track your recovery progress',
+                      Translations.get(lang, 'symptoms_subtitle'),
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 24),
                   Row(children: [
@@ -169,12 +174,12 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                                       blurRadius: 10,
                                       offset: const Offset(0, 4))
                                 ]),
-                            child: const Row(children: [
-                              Icon(CupertinoIcons.add,
+                            child: Row(children: [
+                              const Icon(CupertinoIcons.add,
                                   size: 16, color: Colors.white),
-                              SizedBox(width: 6),
-                              Text('Check-in',
-                                  style: TextStyle(
+                              const SizedBox(width: 6),
+                              Text(Translations.get(lang, 'log_symptom_btn'),
+                                  style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700)),
@@ -182,13 +187,13 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                   ]),
                   const SizedBox(height: 24),
                   if (_logs.isEmpty)
-                    _empty()
+                    _empty(lang)
                   else if (_list)
                     ..._logs.map((l) => Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: _LogCard(log: l)))
+                        child: _LogCard(log: l, lang: lang)))
                   else
-                    _chart(),
+                    _chart(lang),
                   const SizedBox(height: 40),
                 ]),
               ),
@@ -204,7 +209,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
     );
   }
 
-  Widget _empty() => Container(
+  Widget _empty(AppLanguage lang) => Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
         decoration: BoxDecoration(
@@ -222,18 +227,18 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           SizedBox(
               width: 80, height: 60, child: CustomPaint(painter: _HBPainter())),
           const SizedBox(height: 24),
-          Text('No symptom logs yet',
+          Text(Translations.get(lang, 'no_symptoms_logged'),
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
-          const Text(
-              'Start tracking your daily symptoms to monitor your recovery',
+          Text(
+              Translations.get(lang, 'symptoms_subtitle'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 14, color: AppColors.textSecondary, height: 1.45)),
         ]),
       );
 
-  Widget _chart() => Container(
+  Widget _chart(AppLanguage lang) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -247,7 +252,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Severity Trend', style: Theme.of(context).textTheme.titleLarge),
+          Text(Translations.get(lang, 'view_trends'), style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 20),
           SizedBox(
             height: 120,
@@ -395,7 +400,8 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
 // ── Log Card ──────────────────────────────────────────────────────────────────
 class _LogCard extends StatelessWidget {
   final _Log log;
-  const _LogCard({required this.log});
+  final AppLanguage lang;
+  const _LogCard({required this.log, required this.lang});
 
   Color get _c => log.avg <= 2
       ? const Color(0xFF10B981)
@@ -418,7 +424,7 @@ class _LogCard extends StatelessWidget {
             Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: _c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                child: Text('Severity ${log.avg}/5',
+                child: Text('${Translations.get(lang, 'symptom_severity')} ${log.avg}/5',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
           ]),
           const SizedBox(height: 16),
@@ -428,10 +434,11 @@ class _LogCard extends StatelessWidget {
                 final c = e.value <= 2
                     ? const Color(0xFF10B981)
                     : e.value <= 3 ? const Color(0xFFF59E0B) : AppColors.accent;
+                final name = _translateSymptom(e.key, lang);
                 return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
-                    child: Text('${e.key} · ${e.value}/5',
+                    child: Text('$name · ${e.value}/5',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)));
               }).toList()),
           if (log.mood.isNotEmpty) ...[
@@ -439,7 +446,7 @@ class _LogCard extends StatelessWidget {
             Row(children: [
               const Icon(CupertinoIcons.smiley, size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
-              Text('Mood: ${log.mood}',
+              Text('Mood: ${_translateMood(log.mood, lang)}',
                   style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
             ]),
           ],
@@ -448,14 +455,15 @@ class _LogCard extends StatelessWidget {
             Text(log.notes, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
           ],
           const SizedBox(height: 16),
-          _AiTip(log: log),
+          _AiTip(log: log, lang: lang),
         ]),
       );
 }
 
 class _AiTip extends StatelessWidget {
   final _Log log;
-  const _AiTip({required this.log});
+  final AppLanguage lang;
+  const _AiTip({required this.log, required this.lang});
 
   @override
   Widget build(BuildContext context) {
@@ -490,17 +498,20 @@ class _Toggle extends StatelessWidget {
   const _Toggle({required this.showList, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
+    return Container(
         height: 40,
         decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.divider, width: 0.5)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          _seg('List', showList, () => onChanged(true)),
-          _seg('Chart', !showList, () => onChanged(false)),
+          _seg(Translations.get(lang, 'filter_all'), showList, () => onChanged(true)),
+          _seg(Translations.get(lang, 'view_trends'), !showList, () => onChanged(false)),
         ]),
       );
+  }
 
   Widget _seg(String label, bool sel, VoidCallback tap) => GestureDetector(
       onTap: tap,
@@ -547,13 +558,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       'Fatigue', 'Weakness', 'Fever', 'Weight loss', 'Dizziness'
     ],
   };
-  static const _moods = [
-    {'emoji': '😊', 'label': 'Great'},
-    {'emoji': '🙂', 'label': 'Good'},
-    {'emoji': '😐', 'label': 'Okay'},
-    {'emoji': '😔', 'label': 'Low'},
-    {'emoji': '😟', 'label': 'Bad'},
-  ];
+  
+
 
   final Map<String, int> _sel = {};
   String _mood = '';
@@ -665,7 +671,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     setState(() => _aiLoading = true);
     try {
       final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/symptoms'),
+        Uri.parse(ApiConfig.symptomsUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'text': _aiText.text.trim()}),
       );
@@ -707,7 +713,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       }
 
       final response = await http.post(
-        Uri.parse('https://sau-production.up.railway.app/analyze-symptoms'),
+        Uri.parse(ApiConfig.analyzeSymptomsUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'symptoms': _sel,
@@ -741,6 +747,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -764,7 +771,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               child: Row(
                 children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Daily Check-in', style: Theme.of(context).textTheme.headlineMedium),
+                    Text(Translations.get(lang, 'new_reminder').replaceAll('Reminder', 'Check-in'), style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 4),
                     Text(
                       '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
@@ -786,7 +793,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                         Icon(_isListening ? CupertinoIcons.mic_solid : CupertinoIcons.mic,
                             size: 16, color: _isListening ? AppColors.accent : AppColors.textPrimary),
                         const SizedBox(width: 6),
-                        Text(_isListening ? 'Listening...' : 'Voice',
+                        Text(_isListening ? (lang == AppLanguage.en ? 'Listening...' : 'Слушаю...') : (lang == AppLanguage.en ? 'Voice' : 'Голос'),
                             style: TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.w600,
                                 color: _isListening ? AppColors.accent : AppColors.textPrimary)),
@@ -842,7 +849,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
                   const SizedBox(height: 24),
-                  _stepLabel('1', 'Select your symptoms'),
+                  _stepLabel('1', Translations.get(lang, 'new_reminder').replaceAll('New Reminder', 'Select symptoms')),
                   const SizedBox(height: 16),
                   ..._categories.entries.map((cat) {
                     final allSymptoms = cat.value;
@@ -865,7 +872,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
                               ),
-                              child: Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              child: Text(_translateSymptom(s, lang), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                                   color: selected ? Colors.white : AppColors.textPrimary)),
                             ),
                           );
@@ -890,6 +897,10 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                       const SizedBox(height: 20),
                     ]);
                   }),
+                  if (_sel.containsKey('Vomiting (multiple)') && _sel['Vomiting (multiple)']! > 0) ...[
+                    _VomitingWarning(lang: lang),
+                    const SizedBox(height: 20),
+                  ],
                   if (_sel.isNotEmpty) ...[
                     if (_sel.keys.any((k) => !k.toLowerCase().contains('vomiting'))) ...[
                       const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
@@ -899,7 +910,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                       ..._sel.keys.where((k) => !k.toLowerCase().contains('vomiting')).map((name) => Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(children: [
-                              Expanded(child: Text(name, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w500))),
+                              Expanded(child: Text(_translateSymptom(name, lang), style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w500))),
                               Text('${_sel[name]}/5', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
                               Expanded(
                                 flex: 2,
@@ -946,7 +957,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   ],
                   const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
                   const SizedBox(height: 24),
-                  _stepLabel('2', 'Overall mood'),
+                  _stepLabel('2', Translations.get(lang, 'profile_title')),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -965,7 +976,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                           child: Column(mainAxisSize: MainAxisSize.min, children: [
                             Text(m['emoji']!, style: const TextStyle(fontSize: 28)),
                             const SizedBox(height: 6),
-                            Text(m['label']!, style: TextStyle(fontSize: 12,
+                            Text(_translateMood(m['label']!, lang), style: TextStyle(fontSize: 12,
                                 fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                                 color: sel ? AppColors.primary : AppColors.textSecondary)),
                           ]),
@@ -976,14 +987,14 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
                   const SizedBox(height: 24),
-                  _stepLabel('3', 'Add details (optional)'),
+                  _stepLabel('3', Translations.get(lang, 'biometry')),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _notes,
                     maxLines: 3,
                     style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      hintText: 'Any notes for your doctor...',
+                      hintText: lang == AppLanguage.en ? 'Any notes for your doctor...' : 'Любые заметки для врача...',
                       hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                       filled: true, fillColor: AppColors.background,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1060,7 +1071,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                             Icon(_aiResult != null ? CupertinoIcons.checkmark_alt : CupertinoIcons.sparkles,
                                 size: 18, color: Colors.white),
                             const SizedBox(width: 8),
-                            Text(_aiResult != null ? 'Save' : 'Analyze & Save',
+                            Text(_aiResult != null ? Translations.get(lang, 'save_symptoms') : (lang == AppLanguage.en ? 'Analyze & Save' : 'Анализ и сохранение'),
                                 style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                           ]),
                   )),
@@ -1080,6 +1091,92 @@ class _CheckInSheetState extends State<_CheckInSheet> {
         const SizedBox(width: 10),
         Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary, letterSpacing: -0.2)),
       ]);
+  }
+
+String _translateSymptom(String s, AppLanguage lang) {
+  if (lang == AppLanguage.en) return s;
+  final map = {
+    'Abdominal pain': {'ru': 'Боль в животе', 'kk': 'Іштің ауыруы'},
+    'Nausea': {'ru': 'Тошнота', 'kk': 'Жүрек айнуы'},
+    'Vomiting (single)': {'ru': 'Рвота (однократная)', 'kk': 'Құсу (бір рет)'},
+    'Vomiting (multiple)': {'ru': 'Рвота (многократная)', 'kk': 'Құсу (көп мәрте)'},
+    'Bloating': {'ru': 'Вздутие', 'kk': 'Іштің кебуі'},
+    'Diarrhea': {'ru': 'Диарея', 'kk': 'Іш өту'},
+    'Constipation': {'ru': 'Запор', 'kk': 'Іш қату'},
+    'Heartburn': {'ru': 'Изжога', 'kk': 'Зардап'},
+    'Loss of appetite': {'ru': 'Потеря аппетита', 'kk': 'Тәбеттің жоғалуы'},
+    'Fatigue': {'ru': 'Усталость', 'kk': 'Шаршау'},
+    'Weakness': {'ru': 'Слабость', 'kk': 'Әлсіздік'},
+    'Fever': {'ru': 'Жар', 'kk': 'Қызу'},
+    'Weight loss': {'ru': 'Потеря веса', 'kk': 'Салмақ жоғалту'},
+    'Dizziness': {'ru': 'Головокружение', 'kk': 'Бас айналу'},
+  };
+  return map[s]?[lang == AppLanguage.ru ? 'ru' : 'kk'] ?? s;
+}
+
+String _translateCategory(String c, AppLanguage lang) {
+  if (lang == AppLanguage.en) return c;
+  if (c.contains('Digestive')) return lang == AppLanguage.ru ? 'Пищеварение 🍽️' : 'Ас қорыту 🍽️';
+  if (c.contains('Energy')) return lang == AppLanguage.ru ? 'Энергия и тело 💪' : 'Энергия және дене 💪';
+  return c;
+}
+
+String _translateMood(String m, AppLanguage lang) {
+  if (lang == AppLanguage.en) return m;
+  final moods = {
+    'Great': {'ru': 'Отлично', 'kk': 'Керемет'},
+    'Good': {'ru': 'Хорошо', 'kk': 'Жақсы'},
+    'Okay': {'ru': 'Нормально', 'kk': 'Қалыпты'},
+    'Low': {'ru': 'Так себе', 'kk': 'Төмен'},
+    'Bad': {'ru': 'Плохо', 'kk': 'Жаман'},
+  };
+  return moods[m]?[lang == AppLanguage.ru ? 'ru' : 'kk'] ?? m;
+}
+
+final _moods = [
+  {'emoji': '😇', 'label': 'Great'},
+  {'emoji': '😊', 'label': 'Good'},
+  {'emoji': '😐', 'label': 'Okay'},
+  {'emoji': '😕', 'label': 'Low'},
+  {'emoji': '😫', 'label': 'Bad'},
+];
+
+class _VomitingWarning extends StatelessWidget {
+  final AppLanguage lang;
+  const _VomitingWarning({required this.lang});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.accent.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.accent, size: 28),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  Translations.get(lang, 'critical_warning_title'),
+                  style: const TextStyle(color: AppColors.accent, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            Translations.get(lang, 'vomiting_multiple_warning'),
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -4,6 +4,9 @@ import 'package:rehab_assist/screens/onboarding/onboarding_screen.dart';
 import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -13,9 +16,6 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
-// один диагноз
-// мед история обяз
-// дата операции 
 class _SignupScreenState extends State<SignupScreen> {
   final _nameController            = TextEditingController();
   final _emailController           = TextEditingController();
@@ -36,50 +36,43 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  Future<void> _validateAndSignUp() async {
+  Future<void> _validateAndSignUp(AppLanguage lang) async {
     final name            = _nameController.text.trim();
     final email           = _emailController.text.trim();
     final password        = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    // Local validation first — no need to hit Firebase for obvious mistakes
     if (name.isEmpty) {
-      _showError('Please enter your full name.');
+      _showError(Translations.get(lang, 'signup_err_name'));
       return;
     }
     if (email.isEmpty || !email.contains('@')) {
-      _showError('Please enter a valid email address.');
+      _showError(Translations.get(lang, 'signup_err_email'));
       return;
     }
     if (password.isEmpty || password.length < 6) {
-      _showError('Password must be at least 6 characters.');
+      _showError(Translations.get(lang, 'signup_err_pass'));
       return;
     }
     if (password != confirmPassword) {
-      _showError('Passwords do not match.');
+      _showError(Translations.get(lang, 'signup_err_match'));
       return;
     }
     if (!_agreeToTerms) {
-      _showError('Please agree to the terms and conditions.');
+      _showError(Translations.get(lang, 'signup_err_terms'));
       return;
     }
 
     setState(() => _isLoading = true);
-
-    // Create the account in Firebase Auth
     final error = await AuthService.signUp(email, password);
-
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (error != null) {
       _showError(error);
     } else {
-      // Account created — go to onboarding so user fills in their profile
-      // Use pushReplacement so they can't go back to the signup screenrr
-
       await FirestoreService.saveRole(_role, fullName: name);
-
+      if (!mounted) return;
       if (_role == 'doctor') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),
@@ -106,6 +99,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -129,11 +123,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: const Icon(Icons.favorite, color: Colors.white, size: 40),
                 ),
                 const SizedBox(height: 16),
-                const Text('Create Account',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -0.5)),
+                Text(Translations.get(lang, 'signup_title'),
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -0.5)),
                 const SizedBox(height: 6),
-                const Text('Join SAU to start your recovery journey',
-                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                Text(Translations.get(lang, 'signup_subtitle'),
+                    style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
               ]),
             ),
 
@@ -144,40 +138,40 @@ class _SignupScreenState extends State<SignupScreen> {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Sign up',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  Text(Translations.get(lang, 'signup_heading'),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                   const SizedBox(height: 6),
-                  const Text('Create your account to get started',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                  Text(Translations.get(lang, 'signup_sub_heading'),
+                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                   const SizedBox(height: 28),
 
                   // Full Name
-                  _label('Full Name'),
+                  _label(Translations.get(lang, 'signup_full_name')),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
-                    decoration: _dec('Enter your full name'),
+                    decoration: _dec(Translations.get(lang, 'signup_name_hint')),
                   ),
                   const SizedBox(height: 20),
 
                   // Email
-                  _label('Email'),
+                  _label(Translations.get(lang, 'login_email')),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: _dec('Enter your email'),
+                    decoration: _dec(Translations.get(lang, 'signup_email_hint')),
                   ),
                   const SizedBox(height: 20),
 
                   // Password
-                  _label('Password'),
+                  _label(Translations.get(lang, 'login_password')),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    decoration: _dec('Enter a strong password').copyWith(
+                    decoration: _dec(Translations.get(lang, 'signup_pass_hint')).copyWith(
                       suffixIcon: GestureDetector(
                         onTap: () => setState(() => _obscurePassword = !_obscurePassword),
                         child: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -188,12 +182,12 @@ class _SignupScreenState extends State<SignupScreen> {
                   const SizedBox(height: 20),
 
                   // Confirm Password
-                  _label('Confirm Password'),
+                  _label(Translations.get(lang, 'signup_confirm_pass')),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
-                    decoration: _dec('Confirm your password').copyWith(
+                    decoration: _dec(Translations.get(lang, 'signup_confirm_hint')).copyWith(
                       suffixIcon: GestureDetector(
                         onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                         child: Icon(_obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -202,8 +196,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
+                  // Role selector
                   const SizedBox(height: 20),
-                  _label('I am a'),
+                  _label(Translations.get(lang, 'signup_i_am')),
                   const SizedBox(height: 8),
                   Row(children: [
                     Expanded(child: GestureDetector(
@@ -219,8 +215,9 @@ class _SignupScreenState extends State<SignupScreen> {
                         child: Column(children: [
                           Icon(Icons.person_outline, color: _role == 'patient' ? Colors.white : AppColors.textSecondary),
                           const SizedBox(height: 4),
-                          Text('Patient', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                              color: _role == 'patient' ? Colors.white : AppColors.textPrimary)),
+                          Text(Translations.get(lang, 'signup_patient'),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: _role == 'patient' ? Colors.white : AppColors.textPrimary)),
                         ]),
                       ),
                     )),
@@ -238,13 +235,16 @@ class _SignupScreenState extends State<SignupScreen> {
                         child: Column(children: [
                           Icon(Icons.medical_services_outlined, color: _role == 'doctor' ? Colors.white : AppColors.textSecondary),
                           const SizedBox(height: 4),
-                          Text('Doctor', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                              color: _role == 'doctor' ? Colors.white : AppColors.textPrimary)),
+                          Text(Translations.get(lang, 'signup_doctor'),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: _role == 'doctor' ? Colors.white : AppColors.textPrimary)),
                         ]),
                       ),
                     )),
                   ]),
+
                   // Terms checkbox
+                  const SizedBox(height: 8),
                   Row(children: [
                     Checkbox(
                       value: _agreeToTerms,
@@ -253,9 +253,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           states.contains(WidgetState.selected) ? AppColors.primary : Colors.transparent),
                       side: const BorderSide(color: AppColors.divider),
                     ),
-                    const Expanded(
-                      child: Text('I agree to the terms and conditions',
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Expanded(
+                      child: Text(Translations.get(lang, 'signup_agree'),
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     ),
                   ]),
                   const SizedBox(height: 28),
@@ -264,7 +264,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   SizedBox(
                     width: double.infinity, height: 52,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _validateAndSignUp,
+                      onPressed: _isLoading ? null : () => _validateAndSignUp(lang),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -275,21 +275,22 @@ class _SignupScreenState extends State<SignupScreen> {
                       child: _isLoading
                           ? const SizedBox(width: 22, height: 22,
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                          : const Text('Create Account',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          : Text(Translations.get(lang, 'signup_create_btn'),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 20),
 
                   // Already have account
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Text('Already have an account? ',
-                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                    Text(Translations.get(lang, 'signup_have_account'),
+                        style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                    const SizedBox(width: 4),
                     GestureDetector(
                       onTap: () => Navigator.of(context).pushReplacement(
                           MaterialPageRoute(builder: (_) => const LoginScreen())),
-                      child: const Text('Sign in',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      child: Text(Translations.get(lang, 'signup_sign_in_link'),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
                     ),
                   ]),
                 ]),

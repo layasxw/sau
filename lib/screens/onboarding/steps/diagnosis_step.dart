@@ -3,6 +3,9 @@ import 'package:file_picker/file_picker.dart';
 import '../../../theme/app_theme.dart';
 import '../onboarding_data.dart';
 import 'personal_info_step.dart';
+import '../../../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../../../l10n/translations.dart';
 
 class DiagnosisStep extends StatefulWidget {
   final OnboardingData data;
@@ -30,19 +33,20 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
   String _surgicalPeriod = 'pre';
 
   static const _diagnosisOptions = [
-    'Stomach cancer (Stage 1)',
-    'Stomach cancer (Stage 2)',
-    'Stomach cancer (Stage 3)',
-    'Gastric lymphoma (MALT / DLBCL)',
-    'Gastrointestinal stromal tumor (GIST)',
-    'Other',
+    {'key': 'Stomach cancer (Stage 1)', 'labelKey': 'diag_stomach_1'},
+    {'key': 'Stomach cancer (Stage 2)', 'labelKey': 'diag_stomach_2'},
+    {'key': 'Stomach cancer (Stage 3)', 'labelKey': 'diag_stomach_3'},
+    {'key': 'Gastric lymphoma (MALT / DLBCL)', 'labelKey': 'diag_lymphoma'},
+    {'key': 'Gastrointestinal stromal tumor (GIST)', 'labelKey': 'diag_gist'},
+    {'key': 'Other', 'labelKey': 'diag_other'},
   ];
 
   @override
   void initState() {
     super.initState();
     final saved = widget.data.diagnosis;
-    if (saved.isEmpty || _diagnosisOptions.contains(saved)) {
+    final optionKeys = _diagnosisOptions.map((e) => e['key']).toList();
+    if (saved.isEmpty || optionKeys.contains(saved)) {
       _selectedDiagnosis = saved.isEmpty ? null : saved;
       _otherDiagnosisController = TextEditingController();
     } else {
@@ -68,7 +72,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
       initialDate: _surgeryDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
-      helpText: 'Select surgery date',
+      helpText: Translations.get(Provider.of<LanguageProvider>(context, listen: false).currentLanguage, 'ob_select_date'),
     );
     if (picked != null) setState(() => _surgeryDate = picked);
   }
@@ -89,7 +93,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open file picker')),
+          SnackBar(content: Text(Translations.get(Provider.of<LanguageProvider>(context, listen: false).currentLanguage, 'ob_err_file'))),
         );
       }
     }
@@ -105,22 +109,23 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
   }
 
   void _saveAndContinue() {
+    final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
     if (_selectedDiagnosis == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your primary diagnosis')),
+        SnackBar(content: Text(Translations.get(lang, 'ob_err_diag'))),
       );
       return;
     }
     if (_selectedDiagnosis == 'Other' &&
         _otherDiagnosisController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please describe your diagnosis')),
+        SnackBar(content: Text(Translations.get(lang, 'ob_err_desc'))),
       );
       return;
     }
     if (_historyController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in your medical history')),
+        SnackBar(content: Text(Translations.get(lang, 'ob_err_history'))),
       );
       return;
     }
@@ -139,15 +144,16 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          const Text(
-            'Your diagnosis',
-            style: TextStyle(
+          Text(
+            Translations.get(lang, 'ob_diag_title'),
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -155,42 +161,45 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Help us understand your rehabilitation needs',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
+          Text(
+            Translations.get(lang, 'ob_diag_subtitle'),
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 32),
 
-          const FieldLabel('Primary Diagnosis'),
+          FieldLabel(Translations.get(lang, 'ob_primary_diag')),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: _selectedDiagnosis,
-            hint: const Text(
-              'Select your diagnosis',
-              style: TextStyle(color: AppColors.textSecondary),
+            hint: Text(
+              Translations.get(lang, 'ob_diag_select'),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             decoration: inputDecoration(''),
             isExpanded: true,
             items: _diagnosisOptions
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                .map((d) => DropdownMenuItem(
+                      value: d['key'],
+                      child: Text(Translations.get(lang, d['labelKey']!)),
+                    ))
                 .toList(),
             onChanged: (value) => setState(() => _selectedDiagnosis = value),
           ),
 
           if (_selectedDiagnosis == 'Other') ...[
             const SizedBox(height: 16),
-            const FieldLabel('Please describe your diagnosis'),
+            FieldLabel(Translations.get(lang, 'ob_diag_other')),
             const SizedBox(height: 8),
             TextField(
               controller: _otherDiagnosisController,
               textCapitalization: TextCapitalization.sentences,
-              decoration: inputDecoration('Enter your diagnosis'),
+              decoration: inputDecoration(Translations.get(lang, 'ob_diag_hint')),
             ),
           ],
 
           const SizedBox(height: 20),
 
-          const FieldLabel('Surgical Period'),
+          FieldLabel(Translations.get(lang, 'ob_surgical_period')),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -206,7 +215,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      'Pre-rehabilitation',
+                      Translations.get(lang, 'ob_pre_rehab'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -229,7 +238,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      'Rehabilitation',
+                      Translations.get(lang, 'ob_post_rehab'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -244,11 +253,11 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
 
           const SizedBox(height: 20),
 
-          const FieldLabel('Surgery Date'),
+          FieldLabel(Translations.get(lang, 'ob_surgery_date')),
           const SizedBox(height: 4),
-          const Text(
-            'optional',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+          Text(
+            Translations.get(lang, 'ob_optional'),
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
           ),
           const SizedBox(height: 8),
           GestureDetector(
@@ -267,7 +276,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
                   const SizedBox(width: 12),
                   Text(
                     _surgeryDate == null
-                        ? 'Select date'
+                        ? Translations.get(lang, 'ob_select_date')
                         : '${_surgeryDate!.day.toString().padLeft(2, '0')}.${_surgeryDate!.month.toString().padLeft(2, '0')}.${_surgeryDate!.year}',
                     style: TextStyle(
                       color: _surgeryDate == null
@@ -290,11 +299,11 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
 
           const SizedBox(height: 20),
 
-          const FieldLabel('Medical History'),
+          FieldLabel(Translations.get(lang, 'ob_medical_history')),
           const SizedBox(height: 4),
-          const Text(
-            'required — previous treatments, surgeries, chemotherapy, etc.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          Text(
+            Translations.get(lang, 'ob_history_req'),
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -303,18 +312,18 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
             minLines: 5,
             keyboardType: TextInputType.multiline,
             decoration: inputDecoration(
-              'E.g. Gastrectomy in March 2024, 6 cycles of FOLFOX chemotherapy...',
+              Translations.get(lang, 'ob_history_hint'),
             ),
           ),
 
           const SizedBox(height: 20),
 
           // ── Medical Document Attachment ──────────────────────────────────
-          const FieldLabel('Attach Medical Document'),
+          FieldLabel(Translations.get(lang, 'ob_attach_doc')),
           const SizedBox(height: 4),
-          const Text(
-            'optional — discharge summary, test results, referral (PDF, image, Word)',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          Text(
+            Translations.get(lang, 'ob_attach_subtitle'),
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
 
@@ -360,15 +369,15 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.divider),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.upload_file_outlined,
                         size: 20, color: AppColors.textSecondary),
                     SizedBox(width: 10),
                     Text(
-                      'Choose file',
-                      style: TextStyle(
+                      Translations.get(lang, 'ob_choose_file'),
+                      style: const TextStyle(
                           fontSize: 15, color: AppColors.textSecondary),
                     ),
                   ],

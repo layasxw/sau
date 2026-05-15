@@ -4,9 +4,11 @@ import 'package:rehab_assist/screens/doctor_screen.dart';
 import 'package:rehab_assist/services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
-import './onboarding/onboarding_data.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController    = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isLoading = false; // true while Firebase request is in progress
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,13 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // Called when the user taps "Sign in"
-  Future<void> _signIn() async {
+  Future<void> _signIn(AppLanguage lang) async {
     final email    = _emailController.text.trim();
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showError('Please enter your email and password.');
+      _showError(Translations.get(lang, 'login_err_empty'));
       return;
     }
 
@@ -63,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -77,6 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -107,8 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text('SAU',
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                   const SizedBox(height: 6),
-                  const Text('Your personal rehabilitation companion',
-                      style: TextStyle(fontSize: 15, color: AppColors.textSecondary)),
+                  Text(Translations.get(lang, 'onboarding_subtitle'),
+                      style: const TextStyle(fontSize: 15, color: AppColors.textSecondary)),
                 ]),
               ),
 
@@ -120,15 +123,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: BoxDecoration(
                       color: AppColors.surface, borderRadius: BorderRadius.circular(20)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Welcome back',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                    Text(Translations.get(lang, 'login_welcome_back'),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                     const SizedBox(height: 6),
-                    const Text('Enter your credentials to access your recovery plan',
-                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                    Text(Translations.get(lang, 'login_subtitle'),
+                        style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                     const SizedBox(height: 28),
 
                     // Email
-                    const Text('Email', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Text(Translations.get(lang, 'login_email'),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _emailController,
@@ -146,7 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
 
                     // Password
-                    const Text('Password', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Text(Translations.get(lang, 'login_password'),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _passwordController,
@@ -168,13 +173,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 28),
 
-                    // Sign in button — shows spinner while loading
+                    // Sign in button
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        // Disable button while request is in flight
-                        onPressed: _isLoading ? null : _signIn,
+                        onPressed: _isLoading ? null : () => _signIn(lang),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -186,10 +190,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? const SizedBox(
                                 width: 22, height: 22,
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                            : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Text('Sign in', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                                SizedBox(width: 8),
-                                Icon(Icons.arrow_forward, size: 18),
+                            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                Text(Translations.get(lang, 'login_sign_in'),
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward, size: 18),
                               ]),
                       ),
                     ),
@@ -197,13 +202,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // Sign up link
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Text("Don't have an account? ",
-                          style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                      Text(Translations.get(lang, 'login_no_account'),
+                          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                      const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () => Navigator.of(context).pushReplacement(
                             MaterialPageRoute(builder: (_) => const SignupScreen())),
-                        child: const Text('Sign up',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                        child: Text(Translations.get(lang, 'login_sign_up_link'),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
                       ),
                     ]),
                   ]),

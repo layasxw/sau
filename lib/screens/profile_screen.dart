@@ -5,6 +5,9 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import '../services/firestore_service.dart';
+import '../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../l10n/translations.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,37 +18,40 @@ class ProfileScreen extends StatefulWidget {
   static Future<void> logout(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Sign out',
-            style: TextStyle(
-                fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-        content: const Text('Are you sure you want to sign out?',
-            style: TextStyle(color: AppColors.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-            child: const Text('Sign out',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final lang = Provider.of<LanguageProvider>(ctx).currentLanguage;
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(Translations.get(lang, 'sign_out'),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          content: Text(Translations.get(lang, 'sign_out_confirm'),
+              style: const TextStyle(color: AppColors.textSecondary)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(Translations.get(lang, 'cancel'),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+              child: Text(Translations.get(lang, 'sign_out'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        );
+      },
     );
     if (ok != true) return;
     await AuthService.signOut();
@@ -274,6 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final email = AuthService.currentUser?.email ?? 'Unknown';
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final bottomPadding = MediaQuery.of(context).padding.bottom + 100;
 
     if (_isLoading) {
@@ -290,7 +297,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPadding),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              Text('Profile',
+              Text(Translations.get(lang, 'nav_profile'),
                   style: Theme.of(context).textTheme.displayLarge),
               const SizedBox(height: 24),
 
@@ -362,20 +369,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ]),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // ── Language Selector ──────────────────────────────────────────
+              _Card(
+                title: Translations.get(lang, 'language'),
+                icon: CupertinoIcons.globe,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _langChoice(context, AppLanguage.ru, 'RU'),
+                      _langChoice(context, AppLanguage.kk, 'KZ'),
+                      _langChoice(context, AppLanguage.en, 'EN'),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
               // ── Personal info ─────────────────────────────────────────────
               _EditableCard(
-                  title: 'Personal Information',
+                  title: Translations.get(lang, 'personal_info'),
                   icon: CupertinoIcons.person_crop_circle,
                   onEdit: _showEditPersonalInfo,
                   children: [
-                    _Row('Full Name', _fullName ?? '-'),
-                    _Row('Age', _age?.toString() ?? '-'),
-                    _Row('Gender', _gender ?? '-'),
-                    _Row('Height',
+                    _Row(Translations.get(lang, 'full_name'), _fullName ?? '-'),
+                    _Row(Translations.get(lang, 'age'), _age?.toString() ?? '-'),
+                    _Row(Translations.get(lang, 'gender'), _gender ?? '-'),
+                    _Row(Translations.get(lang, 'height'),
                         _height != null ? '${_height!.toStringAsFixed(1)} cm' : '-'),
-                    _Row('Weight',
+                    _Row(Translations.get(lang, 'weight'),
                         _weight != null ? '${_weight!.toStringAsFixed(1)} kg' : '-'),
                   ]),
               const SizedBox(height: 16),
@@ -429,14 +453,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     border:
                         Border.all(color: AppColors.accent.withOpacity(0.2)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(CupertinoIcons.arrow_right_square,
+                      const Icon(CupertinoIcons.arrow_right_square,
                           size: 20, color: AppColors.accent),
-                      SizedBox(width: 8),
-                      Text('Sign out',
-                          style: TextStyle(
+                      const SizedBox(width: 8),
+                      Text(Translations.get(lang, 'sign_out'),
+                          style: const TextStyle(
                               color: AppColors.accent,
                               fontSize: 16,
                               fontWeight: FontWeight.w700)),
@@ -449,6 +473,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _langChoice(BuildContext context, AppLanguage lang, String label) {
+    final current = Provider.of<LanguageProvider>(context).currentLanguage;
+    final active = current == lang;
+
+    return GestureDetector(
+      onTap: () => Provider.of<LanguageProvider>(context, listen: false).setLanguage(lang),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: active ? AppColors.primary : AppColors.background,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: active ? AppColors.primary : AppColors.divider),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: active ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+      ),
     );
   }
 }

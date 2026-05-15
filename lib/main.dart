@@ -10,13 +10,22 @@ import './theme/app_theme.dart';
 import './screens/login_screen.dart';
 import './screens/home_screen.dart';
 import './services/auth_service.dart';
+import './services/language_provider.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const RehabAssistApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+      ],
+      child: const RehabAssistApp(),
+    ),
+  );
 }
 
 Future<Widget> _getStartScreen() async {

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../theme/app_theme.dart';
 import '../onboarding_data.dart';
+import '../../../services/language_provider.dart';
+import 'package:provider/provider.dart';
+import '../../../l10n/translations.dart';
 
 class PersonalInfoStep extends StatefulWidget {
   final OnboardingData data;
@@ -42,9 +45,10 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
   }
 
   void _saveAndContinue() {
+    final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your full name')),
+        SnackBar(content: Text(Translations.get(lang, 'ob_err_name'))),
       );
       return;
     }
@@ -58,15 +62,16 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          const Text(
-            'Tell us about yourself',
-            style: TextStyle(
+          Text(
+            Translations.get(lang, 'ob_personal_title'),
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -74,18 +79,18 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'We need some basic information to personalize your plan',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
+          Text(
+            Translations.get(lang, 'ob_personal_subtitle'),
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 32),
 
-          const FieldLabel('Full Name'),
+          FieldLabel(Translations.get(lang, 'ob_full_name')),
           const SizedBox(height: 8),
           TextField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
-            decoration: inputDecoration('Your full name'),
+            decoration: inputDecoration(Translations.get(lang, 'ob_full_name_hint')),
           ),
           const SizedBox(height: 20),
 
@@ -97,7 +102,7 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const FieldLabel('Age'),
+                    FieldLabel(Translations.get(lang, 'ob_age')),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _ageController,
@@ -114,17 +119,21 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const FieldLabel('Gender'),
+                    FieldLabel(Translations.get(lang, 'ob_gender')),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       initialValue: _selectedGender,
-                      hint: const Text('Select',
-                          style: TextStyle(color: AppColors.textSecondary)),
+                      hint: Text(Translations.get(lang, 'ob_gender_select'),
+                          style: const TextStyle(color: AppColors.textSecondary)),
                       decoration: inputDecoration(''),
-                      items: ['Male', 'Female', 'Other']
+                      items: [
+                        {'key': 'Male', 'label': Translations.get(lang, 'ob_male')},
+                        {'key': 'Female', 'label': Translations.get(lang, 'ob_female')},
+                        {'key': 'Other', 'label': Translations.get(lang, 'ob_other')},
+                      ]
                           .map((g) => DropdownMenuItem(
-                                value: g,
-                                child: Text(g),
+                                value: g['key'] as String,
+                                child: Text(g['label'] as String),
                               ))
                           .toList(),
                       onChanged: (value) =>
@@ -209,8 +218,8 @@ class NavButtons extends StatelessWidget {
           onPressed: onBack,
           icon: const Icon(Icons.arrow_back,
               size: 16, color: AppColors.textSecondary),
-          label: const Text('Back',
-              style: TextStyle(color: AppColors.textSecondary)),
+          label: Text(Translations.get(Provider.of<LanguageProvider>(context).currentLanguage, 'back'),
+              style: const TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton.icon(
           onPressed: onNext,
