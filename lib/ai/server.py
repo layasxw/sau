@@ -12,6 +12,48 @@ load_dotenv()
 
 app = FastAPI()
 
+def get_language_name(code: str) -> str:
+    mapping = {"en": "English", "ru": "Russian", "kk": "Kazakh"}
+    return mapping.get(code, "English")
+
+def translate_text(text: str, target_lang: str) -> str:
+    if not text or not text.strip():
+        return text
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": f"Translate the following text to {target_lang}. Return ONLY the translation, no extra text."},
+                {"role": "user", "content": text}
+            ]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return text
+
+def translate_json(data: dict, target_lang: str) -> dict:
+    if not data:
+        return data
+    try:
+        prompt = f"""Translate all string values in this JSON object to {target_lang}. 
+Keep keys exactly as they are. 
+Maintain the structure and types.
+Return ONLY the JSON object.
+
+JSON:
+{json.dumps(data, ensure_ascii=False)}"""
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        translated = safe_json_parse(response.choices[0].message.content)
+        return translated if translated else data
+    except Exception as e:
+        print(f"JSON translation error: {e}")
+        return data
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -142,22 +184,34 @@ class SymptomRequest(BaseModel):
 
 @app.post("/symptoms")
 def extract_symptoms(request: SymptomRequest):
+    input_text = request.text
+    process_lang = request.lang
+    
+    if request.lang == "kk":
+        input_text = translate_text(request.text, "English")
+        process_lang = "en"
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": f"""You are a medical data extraction assistant.
-Extract symptoms from the user's text and return ONLY JSON in {request.lang}:
+Extract symptoms from the user's text and return ONLY JSON in {get_language_name(process_lang)}.
+IMPORTANT: All values and keys in the JSON MUST be in {get_language_name(process_lang)}.
 {{
-  "mood": "Great, Good, Okay, Low, or Bad (in {request.lang})",
-  "notes": "brief summary of what the patient said in {request.lang}",
-  "symptoms": {{"Symptom name in {request.lang}": 1-5}}
+  "mood": "Great, Good, Okay, Low, or Bad (in {get_language_name(process_lang)})",
+  "notes": "brief summary of what the patient said in {get_language_name(process_lang)}",
+  "symptoms": {{"Symptom name in {get_language_name(process_lang)}": 1-5}}
 }}
 Severity scale: 1=very mild, 2=mild, 3=moderate, 4=severe, 5=very severe.
-Always respond in {request.lang} regardless of input language."""},
-            {"role": "user", "content": request.text}
+Always respond exclusively in {get_language_name(process_lang)} regardless of input language."""},
+            {"role": "user", "content": input_text}
         ]
     )
-    return safe_json_parse(response.choices[0].message.content)
+    result = safe_json_parse(response.choices[0].message.content)
+    
+    if request.lang == "kk":
+        result = translate_json(result, "Kazakh")
+    return result
 
 
 # Symptom Analysis 
@@ -173,20 +227,22 @@ class SymptomAnalysisRequest(BaseModel):
 
 @app.post("/analyze-symptoms")
 def analyze_symptoms(request: SymptomAnalysisRequest):
+    process_lang = "en" if request.lang == "kk" else request.lang
+    
     context = ""
     if request.diagnosis:
-        context += f"Diagnosis: {request.diagnosis}\n"
+        diag = translate_text(request.diagnosis, "English") if request.lang == "kk" else request.diagnosis
+        context += f"Diagnosis: {diag}\n"
     if request.days_since_surgery is not None:
         context += f"Days since surgery: {request.days_since_surgery}\n"
     if request.restrictions:
-        allergies = request.restrictions.get('allergies', [])
-        if allergies:
-            context += f"Allergies: {', '.join(allergies)}\n"
+        restr = translate_text(str(request.restrictions), "English") if request.lang == "kk" else str(request.restrictions)
+        context += f"Restrictions: {restr}\n"
 
+    notes = translate_text(request.notes, "English") if request.lang == "kk" and request.notes else request.notes
     prompt = f"""{context}
-Symptoms: {request.symptoms}
-Mood: {request.mood}
-Notes: {request.notes or 'none'}"""
+Recent Symptoms: {request.symptoms}
+Patient Notes: {notes}"""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -194,20 +250,23 @@ Notes: {request.notes or 'none'}"""
             {"role": "system", "content": f"""You are a rehabilitation support assistant for post-surgical patients.
 {SAFETY_RULES}
 Give personalized, supportive advice based on the patient's specific diagnosis and recovery stage.
-Always respond in {request.lang}.
+IMPORTANT: Your entire response MUST be in {get_language_name(process_lang)}. Do not use any other language.
 
 Return ONLY JSON:
 {{
   "risk": "low|medium|high",
-  "summary": "brief summary of current state in 1-2 sentences in {request.lang}",
-  "advice": "specific advice relevant to their diagnosis and recovery day in {request.lang}",
-  "reminder": "one gentle motivational reminder in {request.lang}",
+  "summary": "brief summary of current state in 1-2 sentences in {get_language_name(process_lang)}",
+  "advice": "specific advice relevant to their diagnosis and recovery day in {get_language_name(process_lang)}",
+  "reminder": "one gentle motivational reminder in {get_language_name(process_lang)}",
   "see_doctor": true or false
 }}"""},
             {"role": "user", "content": prompt}
         ]
     )
-    return safe_json_parse(response.choices[0].message.content)
+    result = safe_json_parse(response.choices[0].message.content)
+    if request.lang == "kk":
+        result = translate_json(result, "Kazakh")
+    return result
 
 
 # Recovery Advisor 
@@ -221,32 +280,47 @@ class AdvisorRequest(BaseModel):
 
 @app.post("/analyze")
 def analyze_recovery(request: AdvisorRequest):
-    prompt = f"""
-Patient profile: {request.profile}
-Medical info: {request.medical}
-Recent symptoms: {request.recent_symptoms}
-Recent meals: {request.recent_meals}
-"""
+    process_lang = "en" if request.lang == "kk" else request.lang
+    
+    # Translate input if kk
+    profile = request.profile
+    medical = request.medical
+    symptoms = request.recent_symptoms
+    meals = request.recent_meals
+    
+    if request.lang == "kk":
+        medical = translate_json(medical, "English")
+        symptoms = [translate_json(s, "English") for s in symptoms] if symptoms else symptoms
+        meals = [translate_json(m, "English") for m in meals] if meals else meals
+
+    prompt = f"""Patient profile: {profile}
+Medical info: {medical}
+Recent symptoms: {symptoms}
+Recent meals: {meals}"""
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation expert for post-surgical patients.
 {SAFETY_RULES}
-Always respond in {request.lang}.
+IMPORTANT: Your entire response MUST be in {get_language_name(process_lang)}. All text fields must be in {get_language_name(process_lang)}.
 
 Return ONLY JSON:
 {{
   "risk": "low|medium|high",
-  "status": "overall recovery status in 1-2 sentences in {request.lang}",
-  "concerns": "any concerns based on symptoms and nutrition in {request.lang}",
-  "nutrition": "personalized nutrition advice based on diagnosis in {request.lang}",
-  "activity": "appropriate activity recommendations for recovery stage in {request.lang}",
-  "doctor": "what to discuss at next doctor appointment in {request.lang}"
+  "status": "overall recovery status in 1-2 sentences in {get_language_name(process_lang)}",
+  "concerns": "any concerns based on symptoms and nutrition in {get_language_name(process_lang)}",
+  "nutrition": "personalized nutrition advice based on diagnosis in {get_language_name(process_lang)}",
+  "activity": "appropriate activity recommendations for recovery stage in {get_language_name(process_lang)}",
+  "doctor": "what to discuss at next doctor appointment in {get_language_name(process_lang)}"
 }}"""},
             {"role": "user", "content": prompt}
         ]
     )
-    return safe_json_parse(response.choices[0].message.content)
+    result = safe_json_parse(response.choices[0].message.content)
+    if request.lang == "kk":
+        result = translate_json(result, "Kazakh")
+    return result
 
 
 # Meal Analysis 
@@ -263,14 +337,21 @@ class MealAnalysisRequest(BaseModel):
 
 @app.post("/analyze-meal")
 def analyze_meal(request: MealAnalysisRequest):
+    process_lang = "en" if request.lang == "kk" else request.lang
+    
     context = ""
     if request.diagnosis:
-        context += f"Diagnosis: {request.diagnosis}\n"
+        diag = translate_text(request.diagnosis, "English") if request.lang == "kk" else request.diagnosis
+        context += f"Diagnosis: {diag}\n"
     if request.days_since_surgery is not None:
         context += f"Days since surgery: {request.days_since_surgery}\n"
 
+    meals = request.meals
+    if request.lang == "kk":
+        meals = [translate_json(m, "English") for m in meals]
+
     prompt = f"""{context}
-Meals: {request.meals}
+Meals: {meals}
 Calories: {request.total_calories}
 Protein: {request.total_protein}g
 Carbs: {request.total_carbs}g
@@ -281,18 +362,21 @@ Fat: {request.total_fat}g"""
         messages=[
             {"role": "system", "content": f"""You are a nutrition advisor for post-surgical rehabilitation patients.
 {SAFETY_RULES}
-Always respond in {request.lang}.
+Always respond in {get_language_name(process_lang)}.
 
 Return ONLY JSON:
 {{
   "rating": "low|good|high",
-  "summary": "brief assessment of today's nutrition in 1-2 sentences in {request.lang}",
-  "advice": "specific nutrition advice relevant to their diagnosis and recovery stage in {request.lang}"
+  "summary": "brief assessment of today's nutrition in 1-2 sentences in {get_language_name(process_lang)}",
+  "advice": "specific nutrition advice relevant to their diagnosis and recovery stage in {get_language_name(process_lang)}"
 }}"""},
             {"role": "user", "content": prompt}
         ]
     )
-    return safe_json_parse(response.choices[0].message.content)
+    result = safe_json_parse(response.choices[0].message.content)
+    if request.lang == "kk":
+        result = translate_json(result, "Kazakh")
+    return result
 
 
 # Reminder Suggestions 
@@ -307,35 +391,50 @@ class ReminderSuggestionRequest(BaseModel):
 
 @app.post("/suggest-reminders")
 def suggest_reminders(request: ReminderSuggestionRequest):
+    process_lang = "en" if request.lang == "kk" else request.lang
+    
     context = ""
     if request.diagnosis:
-        context += f"Diagnosis: {request.diagnosis}\n"
+        diag = translate_text(request.diagnosis, "English") if request.lang == "kk" else request.diagnosis
+        context += f"Diagnosis: {diag}\n"
     if request.days_since_surgery is not None:
         context += f"Days since surgery: {request.days_since_surgery}\n"
 
+    symptoms = request.symptoms
+    meals = request.meals
+    mood = request.mood
+    
+    if request.lang == "kk":
+        symptoms = translate_json(symptoms, "English") if symptoms else symptoms
+        meals = [translate_text(m, "English") for m in meals] if meals else meals
+        mood = translate_text(mood, "English") if mood else mood
+
     prompt = f"""{context}
-Symptoms: {request.symptoms or 'none'}
-Nutrition: {request.meals or 'none'}
-Mood: {request.mood or 'none'}"""
+Symptoms: {symptoms or 'none'}
+Nutrition: {meals or 'none'}
+Mood: {mood or 'none'}"""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation support assistant.
 {SAFETY_RULES}
-Suggest 2-3 personalized reminders based on the patient's current state and diagnosis in {request.lang}.
-Always respond in {request.lang}.
+Suggest 2-3 personalized reminders based on the patient's current state and diagnosis in {get_language_name(process_lang)}.
+Always respond in {get_language_name(process_lang)}.
 
 Return ONLY JSON:
 {{
   "reminders": [
-    {{"title": "short title in {request.lang}", "description": "brief description in {request.lang}"}}
+    {{"title": "short title in {get_language_name(process_lang)}", "description": "brief description in {get_language_name(process_lang)}"}}
   ]
 }}"""},
             {"role": "user", "content": prompt}
         ]
     )
-    return safe_json_parse(response.choices[0].message.content)
+    result = safe_json_parse(response.choices[0].message.content)
+    if request.lang == "kk":
+        result = translate_json(result, "Kazakh")
+    return result
 
 
 # Recovery Score 
