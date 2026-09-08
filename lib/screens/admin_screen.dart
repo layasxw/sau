@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/language_provider.dart';
+import '../l10n/translations.dart';
 import 'login_screen.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -54,20 +57,21 @@ Future<void> _loadAll() async {
 }  // ── Verify doctor ─────────────────────────────────────────────────────────
 
   Future<void> _verifyDoctor(String doctorId, String name) async {
+    final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Verify Doctor',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        content: Text('Grant $name access to their doctor dashboard?',
+        title: Text(Translations.get(lang, 'admin_verify_doctor_title'),
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        content: Text('${Translations.get(lang, 'admin_verify_body_prefix')}$name${Translations.get(lang, 'admin_verify_body_suffix')}',
             style: const TextStyle(color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(Translations.get(lang, 'cancel'),
+                style: const TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -77,7 +81,7 @@ Future<void> _loadAll() async {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10))),
-            child: const Text('Verify'),
+            child: Text(Translations.get(lang, 'verify_btn')),
           ),
         ],
       ),
@@ -94,9 +98,10 @@ Future<void> _loadAll() async {
         _doctors.where((d) => d['doctorStatus'] == 'verified').toList();
 
     if (verifiedDoctors.isEmpty) {
+      final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No verified doctors available yet.'),
+        SnackBar(
+          content: Text(Translations.get(lang, 'admin_no_verified_doctors')),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -129,6 +134,7 @@ Future<void> _loadAll() async {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final pendingCount =
         _doctors.where((d) => d['doctorStatus'] == 'pending').length;
 
@@ -137,8 +143,8 @@ Future<void> _loadAll() async {
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        title: const Text('Admin Panel',
-            style: TextStyle(
+        title: Text(Translations.get(lang, 'admin_panel_title'),
+            style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary)),
@@ -168,7 +174,7 @@ Future<void> _loadAll() async {
           tabs: [
             Tab(
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Text('Doctors'),
+                Text(Translations.get(lang, 'admin_tab_doctors')),
                 if (pendingCount > 0) ...[
                   const SizedBox(width: 6),
                   Container(
@@ -187,7 +193,7 @@ Future<void> _loadAll() async {
                 ],
               ]),
             ),
-            Tab(text: 'Patients'),
+            Tab(text: Translations.get(lang, 'nav_patients')),
           ],
         ),
       ),
@@ -220,10 +226,11 @@ class _DoctorsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     if (doctors.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.medical_services_outlined,
-        text: 'No doctor accounts yet.\nDoctors register via the app.',
+        text: Translations.get(lang, 'admin_no_doctor_accounts'),
       );
     }
 
@@ -270,7 +277,7 @@ class _DoctorsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(d['fullName'] ?? d['email'] ?? 'Unknown',
+                Text(d['fullName'] ?? d['email'] ?? Translations.get(lang, 'unknown'),
                     style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -287,7 +294,7 @@ class _DoctorsTab extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      isPending ? 'Pending' : 'Verified',
+                      isPending ? Translations.get(lang, 'status_pending') : Translations.get(lang, 'status_verified'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -300,7 +307,7 @@ class _DoctorsTab extends StatelessWidget {
             if (isPending)
               ElevatedButton(
                 onPressed: () =>
-                    onVerify(d['id'], d['fullName'] ?? 'this doctor'),
+                    onVerify(d['id'], d['fullName'] ?? Translations.get(lang, 'this_doctor')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -312,7 +319,7 @@ class _DoctorsTab extends StatelessWidget {
                   textStyle: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w600),
                 ),
-                child: const Text('Verify'),
+                child: Text(Translations.get(lang, 'verify_btn')),
               ),
           ]),
         );
@@ -331,10 +338,11 @@ class _PatientsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     if (patients.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.people_outline,
-        text: 'No patients registered yet.',
+        text: Translations.get(lang, 'admin_no_patients_registered'),
       );
     }
 
@@ -366,7 +374,7 @@ class _PatientsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p['fullName'] ?? 'Unknown',
+                Text(p['fullName'] ?? Translations.get(lang, 'unknown'),
                     style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -374,8 +382,8 @@ class _PatientsTab extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   hasDoctor
-                      ? 'Dr. ${p['assignedDoctorName'] ?? 'Assigned'}'
-                      : 'No doctor assigned',
+                      ? '${Translations.get(lang, 'assigned_doctor_prefix')}${p['assignedDoctorName'] ?? Translations.get(lang, 'assigned_fallback')}'
+                      : Translations.get(lang, 'admin_no_doctor_assigned'),
                   style: TextStyle(
                       fontSize: 12,
                       color: hasDoctor
@@ -399,7 +407,7 @@ class _PatientsTab extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  hasDoctor ? 'Change' : 'Assign',
+                  hasDoctor ? Translations.get(lang, 'admin_change_btn') : Translations.get(lang, 'admin_assign_btn'),
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -433,6 +441,7 @@ class _AssignDoctorSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -451,21 +460,21 @@ class _AssignDoctorSheet extends StatelessWidget {
         const SizedBox(height: 20),
 
         Text(
-          'Assign doctor to ${patient['fullName'] ?? 'patient'}',
+          '${Translations.get(lang, 'admin_assign_doctor_prefix')}${patient['fullName'] ?? Translations.get(lang, 'patient_singular')}',
           style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary),
         ),
         const SizedBox(height: 4),
-        const Text('Select a verified doctor from the list below',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        Text(Translations.get(lang, 'admin_select_verified_doctor'),
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
         const SizedBox(height: 20),
 
         ...doctors.map((d) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: GestureDetector(
-                onTap: () => onAssign(d['id'], d['fullName'] ?? 'Doctor'),
+                onTap: () => onAssign(d['id'], d['fullName'] ?? Translations.get(lang, 'doctor_singular')),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -484,7 +493,7 @@ class _AssignDoctorSheet extends StatelessWidget {
                         size: 20, color: AppColors.primary),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(d['fullName'] ?? 'Unknown',
+                      child: Text(d['fullName'] ?? Translations.get(lang, 'unknown'),
                           style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -502,8 +511,8 @@ class _AssignDoctorSheet extends StatelessWidget {
           const SizedBox(height: 4),
           TextButton(
             onPressed: onUnassign,
-            child: const Text('Remove doctor assignment',
-                style: TextStyle(
+            child: Text(Translations.get(lang, 'admin_remove_doctor_assignment'),
+                style: const TextStyle(
                     fontSize: 13,
                     color: Colors.red,
                     fontWeight: FontWeight.w500)),

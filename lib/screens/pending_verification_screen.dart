@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/language_provider.dart';
+import '../l10n/translations.dart';
 import 'login_screen.dart';
 import 'doctor_screen.dart';
 
@@ -27,9 +30,10 @@ class _PendingVerificationScreenState extends State<PendingVerificationScreen> {
         MaterialPageRoute(builder: (_) => const DoctorScreen()),
       );
     } else {
+      final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Still pending — the admin has not verified you yet.'),
+        SnackBar(
+          content: Text(Translations.get(lang, 'pending_still_pending')),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -38,6 +42,7 @@ class _PendingVerificationScreenState extends State<PendingVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -59,17 +64,17 @@ class _PendingVerificationScreenState extends State<PendingVerificationScreen> {
               ),
               const SizedBox(height: 32),
 
-              const Text(
-                'Awaiting Verification',
-                style: TextStyle(
+              Text(
+                Translations.get(lang, 'pending_awaiting_title'),
+                style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                     letterSpacing: -0.5),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Your account has been created and is pending admin approval. You will get access to your dashboard once verified.',
+              Text(
+                Translations.get(lang, 'pending_awaiting_body'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 15,
@@ -97,8 +102,8 @@ class _PendingVerificationScreenState extends State<PendingVerificationScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2.5))
-                      : const Text('Check verification status',
-                          style: TextStyle(
+                      : Text(Translations.get(lang, 'pending_check_status_btn'),
+                          style: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ),
@@ -113,8 +118,8 @@ class _PendingVerificationScreenState extends State<PendingVerificationScreen> {
                     MaterialPageRoute(builder: (_) => const LoginScreen()),
                   );
                 },
-                child: const Text('Sign out',
-                    style: TextStyle(
+                child: Text(Translations.get(lang, 'sign_out'),
+                    style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500)),

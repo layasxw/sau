@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
@@ -21,7 +21,7 @@ def translate_text(text: str, target_lang: str) -> str:
         return text
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role": "system", "content": f"Translate the following text to {target_lang}. Return ONLY the translation, no extra text."},
                 {"role": "user", "content": text}
@@ -45,7 +45,7 @@ JSON:
 {json.dumps(data, ensure_ascii=False)}"""
 
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}]
         )
         translated = safe_json_parse(response.choices[0].message.content)
@@ -106,7 +106,7 @@ class FoodRecognitionRequest(BaseModel):
 def recognize_food(request: FoodRecognitionRequest):
     """
     Accepts a base64 image, returns recognized food name + nutrition per 100g.
-    Uses Groq LLaMA-4 Vision as primary, falls back to LLaMA-3.2 Vision if needed.
+    Uses Qwen3.8 Vision as primary, falls back to Qwen3.6 Vision if needed.
     """
     try:
         img_bytes = base64.b64decode(request.image)
@@ -135,10 +135,10 @@ Nutrition values must be realistic per 100g of the dish as typically prepared.
 If you cannot identify any food in the image, return: {{"error": "No food detected", "confidence": 0.0}}
 Never return markdown, never explain, only JSON."""
 
-    # Try llama-4-scout first (best vision), fall back to llama-3.2-11b-vision
+    # Try qwen3.8 first (tunable reasoning effort), fall back to qwen3.6 (higher images-per-request limit)
     models_to_try = [
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "llama-3.2-11b-vision-preview",
+        "qwen/qwen3.8-27b",
+        "qwen/qwen3.6-27b",
     ]
 
     for model in models_to_try:
@@ -192,7 +192,7 @@ def extract_symptoms(request: SymptomRequest):
         process_lang = "en"
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": f"""You are a medical data extraction assistant.
 Extract symptoms from the user's text and return ONLY JSON in {get_language_name(process_lang)}.
@@ -245,7 +245,7 @@ Recent Symptoms: {request.symptoms}
 Patient Notes: {notes}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation support assistant for post-surgical patients.
 {SAFETY_RULES}
@@ -299,7 +299,7 @@ Recent symptoms: {symptoms}
 Recent meals: {meals}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation expert for post-surgical patients.
 {SAFETY_RULES}
@@ -358,7 +358,7 @@ Carbs: {request.total_carbs}g
 Fat: {request.total_fat}g"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": f"""You are a nutrition advisor for post-surgical rehabilitation patients.
 {SAFETY_RULES}
@@ -415,7 +415,7 @@ Nutrition: {meals or 'none'}
 Mood: {mood or 'none'}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": f"""You are a rehabilitation support assistant.
 {SAFETY_RULES}

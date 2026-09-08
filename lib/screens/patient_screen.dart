@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
+import '../services/language_provider.dart';
+import '../l10n/translations.dart';
 
 class PatientDetailScreen extends StatefulWidget {
   final Map<String, dynamic> patient;
@@ -55,7 +58,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.patient['fullName'] ?? 'Patient';
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
+    final name = widget.patient['fullName'] ?? Translations.get(lang, 'patient_fallback_cap');
     final age = widget.patient['age'];
     final gender = widget.patient['gender'];
 
@@ -73,7 +77,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
               style: const TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           if (age != null || gender != null)
-            Text('$age y.o. • $gender',
+            Text('$age ${Translations.get(lang, 'years_old_suffix')} • $gender',
                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         ]),
         bottom: TabBar(
@@ -84,11 +88,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           indicatorWeight: 2,
           labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
-          tabs: const [
-            Tab(text: 'Symptoms'),
-            Tab(text: 'Nutrition'),
-            Tab(text: 'Reminders'),
-            Tab(text: 'Message'),
+          tabs: [
+            Tab(text: Translations.get(lang, 'nav_symptoms')),
+            Tab(text: Translations.get(lang, 'nav_nutrition')),
+            Tab(text: Translations.get(lang, 'nav_reminders')),
+            Tab(text: Translations.get(lang, 'tab_message')),
           ],
         ),
       ),
@@ -122,14 +126,18 @@ class _SymptomsTabState extends State<_SymptomsTab> {
 
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
-  String _dayLabel(DateTime d) {
-    const names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return names[d.weekday - 1];
+  String _dayLabel(DateTime d, AppLanguage lang) {
+    const keys = ['day_monday', 'day_tuesday', 'day_wednesday', 'day_thursday', 'day_friday', 'day_saturday', 'day_sunday'];
+    return Translations.get(lang, keys[d.weekday - 1]);
   }
 
-  String _monthShort(int m) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return months[m - 1];
+  String _monthShort(int m, AppLanguage lang) {
+    const keys = [
+      'month_short_jan','month_short_feb','month_short_mar','month_short_apr',
+      'month_short_may','month_short_jun','month_short_jul','month_short_aug',
+      'month_short_sep','month_short_oct','month_short_nov','month_short_dec',
+    ];
+    return Translations.get(lang, keys[m - 1]);
   }
 
   @override
@@ -140,10 +148,11 @@ class _SymptomsTabState extends State<_SymptomsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     if (widget.logs.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.monitor_heart_outlined,
-        text: 'No symptoms logged in the last 7 days',
+        text: Translations.get(lang, 'no_symptoms_7d'),
       );
     }
 
@@ -159,7 +168,7 @@ class _SymptomsTabState extends State<_SymptomsTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
       children: [
-        const _SectionHeader(title: 'By Day'),
+        _SectionHeader(title: Translations.get(lang, 'by_day')),
         const SizedBox(height: 12),
         ...days.map((day) {
           final key = _dateKey(day);
@@ -219,7 +228,7 @@ class _SymptomsTabState extends State<_SymptomsTab> {
                             ),
                           ),
                           Text(
-                            _monthShort(day.month),
+                            _monthShort(day.month, lang),
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
@@ -232,7 +241,7 @@ class _SymptomsTabState extends State<_SymptomsTab> {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(
-                            isToday ? 'Today' : _dayLabel(day),
+                            isToday ? Translations.get(lang, 'today') : _dayLabel(day, lang),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -241,11 +250,11 @@ class _SymptomsTabState extends State<_SymptomsTab> {
                           ),
                           const SizedBox(height: 2),
                           if (!hasData)
-                            const Text('Not logged',
-                                style: TextStyle(fontSize: 12, color: AppColors.textSecondary))
+                            Text(Translations.get(lang, 'not_logged'),
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
                           else if (symptoms.isEmpty)
-                            const Text('No symptoms recorded',
-                                style: TextStyle(fontSize: 12, color: AppColors.textSecondary))
+                            Text(Translations.get(lang, 'no_symptoms_recorded'),
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
                           else
                             Wrap(
                               spacing: 4,
@@ -303,7 +312,7 @@ class _SymptomsTabState extends State<_SymptomsTab> {
         }),
 
         const SizedBox(height: 28),
-        const _SectionHeader(title: 'Trends — Last 7 Days'),
+        _SectionHeader(title: Translations.get(lang, 'trends_7_days')),
         const SizedBox(height: 12),
         _SymptomAvgChart(logs: widget.logs),
       ],
@@ -319,6 +328,7 @@ class _SymptomCardExpanded extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final symptoms = Map<String, dynamic>.from(log['symptoms'] ?? {});
     final mood = log['mood'] as String? ?? '';
     final notes = log['notes'] as String? ?? '';
@@ -339,7 +349,7 @@ class _SymptomCardExpanded extends StatelessWidget {
         Row(children: [
           const Icon(Icons.mood, size: 14, color: AppColors.textSecondary),
           const SizedBox(width: 6),
-          Text('Mood: $mood',
+          Text('${Translations.get(lang, 'mood_prefix')}$mood',
               style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
         ]),
       if (notes.isNotEmpty) ...[
@@ -356,11 +366,11 @@ class _SymptomCardExpanded extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [
-              Icon(Icons.auto_awesome, size: 13, color: AppColors.primary),
-              SizedBox(width: 6),
-              Text('AI Analysis',
-                  style: TextStyle(
+            Row(children: [
+              const Icon(Icons.auto_awesome, size: 13, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(Translations.get(lang, 'ai_analysis_short'),
+                  style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
             ]),
             const SizedBox(height: 6),
@@ -409,6 +419,7 @@ class _SymptomAvgChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final now = DateTime.now();
     final days = List.generate(7, (i) => DateTime(now.year, now.month, now.day - (6 - i)));
 
@@ -429,11 +440,11 @@ class _SymptomAvgChart extends StatelessWidget {
     if (filled.length >= 2) {
       final diff = filled.last - filled.first;
       if (diff > 0.3) {
-        trend = '↑ Getting worse';
+        trend = Translations.get(lang, 'trend_worse');
       } else if (diff < -0.3) {
-        trend = '↓ Improving';
+        trend = Translations.get(lang, 'trend_improving');
       } else {
-        trend = '→ Stable';
+        trend = Translations.get(lang, 'trend_stable');
       }
     }
     final trendColor = trend == null
@@ -444,7 +455,12 @@ class _SymptomAvgChart extends StatelessWidget {
                 ? Colors.green
                 : AppColors.textSecondary;
 
-    const weekDays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    final weekDays = [
+      Translations.get(lang, 'weekday_short_mo'), Translations.get(lang, 'weekday_short_tu'),
+      Translations.get(lang, 'weekday_short_we'), Translations.get(lang, 'weekday_short_th'),
+      Translations.get(lang, 'weekday_short_fr'), Translations.get(lang, 'weekday_short_sa'),
+      Translations.get(lang, 'weekday_short_su'),
+    ];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -455,9 +471,9 @@ class _SymptomAvgChart extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Expanded(
-            child: Text('Average Severity',
-                style: TextStyle(
+          Expanded(
+            child: Text(Translations.get(lang, 'avg_severity'),
+                style: const TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           ),
           if (trend != null)
@@ -466,8 +482,8 @@ class _SymptomAvgChart extends StatelessWidget {
                     fontSize: 12, fontWeight: FontWeight.w600, color: trendColor)),
         ]),
         const SizedBox(height: 4),
-        const Text('Mean score across all symptoms · last 7 days',
-            style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+        Text(Translations.get(lang, 'avg_severity_subtitle'),
+            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         const SizedBox(height: 16),
         SizedBox(
           height: 110,
@@ -524,7 +540,7 @@ class _SymptomAvgChart extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    isToday ? 'Today' : dayLabel,
+                    isToday ? Translations.get(lang, 'today') : dayLabel,
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
@@ -538,11 +554,11 @@ class _SymptomAvgChart extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Row(children: [
-          _dot(Colors.green, '1–2 Mild'),
+          _dot(Colors.green, Translations.get(lang, 'severity_mild')),
           const SizedBox(width: 12),
-          _dot(Colors.orange, '3 Moderate'),
+          _dot(Colors.orange, Translations.get(lang, 'severity_moderate')),
           const SizedBox(width: 12),
-          _dot(Colors.red, '4–5 Severe'),
+          _dot(Colors.red, Translations.get(lang, 'severity_severe')),
         ]),
       ]),
     );
@@ -568,10 +584,11 @@ class _FoodTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     if (meals.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
           icon: Icons.restaurant_outlined,
-          text: 'No meals logged in the last 7 days');
+          text: Translations.get(lang, 'no_meals_7d'));
     }
 
     final now = DateTime.now();
@@ -600,54 +617,59 @@ class _FoodTab extends StatelessWidget {
     final todayFat =
         todayMeals.fold(0.0, (s, m) => s + ((m['fat'] as num?)?.toDouble() ?? 0));
 
-    const weekDays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    final weekDays = [
+      Translations.get(lang, 'weekday_short_mo'), Translations.get(lang, 'weekday_short_tu'),
+      Translations.get(lang, 'weekday_short_we'), Translations.get(lang, 'weekday_short_th'),
+      Translations.get(lang, 'weekday_short_fr'), Translations.get(lang, 'weekday_short_sa'),
+      Translations.get(lang, 'weekday_short_su'),
+    ];
     final maxCal =
         caloriesPerDay.where((v) => v >= 0).fold(0.0, (a, b) => a > b ? a : b);
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const _SectionHeader(title: 'Today'),
+        _SectionHeader(title: Translations.get(lang, 'today')),
         const SizedBox(height: 12),
         if (todayMeals.isEmpty)
-          const _InfoCard(
+          _InfoCard(
               icon: Icons.warning_amber_rounded,
               iconColor: Colors.orange,
-              text: 'Patient has not logged meals today')
+              text: Translations.get(lang, 'patient_no_meals_today'))
         else ...[
           Row(children: [
             _NutrientBox(
-                label: 'Calories',
+                label: Translations.get(lang, 'calories_label'),
                 value: '${todayCalories.toInt()}',
-                unit: 'kcal',
+                unit: Translations.get(lang, 'calories'),
                 color: const Color(0xFFFF9800)),
             const SizedBox(width: 8),
             _NutrientBox(
-                label: 'Protein',
+                label: Translations.get(lang, 'protein'),
                 value: '${todayProtein.toInt()}',
-                unit: 'g',
+                unit: Translations.get(lang, 'grams'),
                 color: const Color(0xFFE53935)),
             const SizedBox(width: 8),
             _NutrientBox(
-                label: 'Carbs',
+                label: Translations.get(lang, 'carbs'),
                 value: '${todayCarbs.toInt()}',
-                unit: 'g',
+                unit: Translations.get(lang, 'grams'),
                 color: Colors.green),
             const SizedBox(width: 8),
             _NutrientBox(
-                label: 'Fat',
+                label: Translations.get(lang, 'fat'),
                 value: '${todayFat.toInt()}',
-                unit: 'g',
+                unit: Translations.get(lang, 'grams'),
                 color: AppColors.primary),
           ]),
           const SizedBox(height: 12),
           ...todayMeals.map((m) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: _MealRow(meal: m),
+                child: _MealRow(meal: m, lang: lang),
               )),
         ],
         const SizedBox(height: 24),
-        const _SectionHeader(title: 'Calories — Last 7 Days'),
+        _SectionHeader(title: Translations.get(lang, 'calories_7d_title')),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
@@ -738,7 +760,8 @@ class _NutrientBox extends StatelessWidget {
 
 class _MealRow extends StatelessWidget {
   final Map<String, dynamic> meal;
-  const _MealRow({required this.meal});
+  final AppLanguage lang;
+  const _MealRow({required this.meal, required this.lang});
 
   @override
   Widget build(BuildContext context) {
@@ -761,7 +784,7 @@ class _MealRow extends StatelessWidget {
                 style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
           ]),
         ),
-        Text('${meal['calories'] ?? 0} kcal',
+        Text('${meal['calories'] ?? 0} ${Translations.get(lang, 'calories')}',
             style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -779,10 +802,11 @@ class _RemindersTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     if (reminders.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
           icon: Icons.notifications_none_outlined,
-          text: 'Patient has no reminders set');
+          text: Translations.get(lang, 'no_reminders_set'));
     }
 
     final completed = reminders.where((r) => r['completed'] == true).length;
@@ -806,8 +830,8 @@ class _RemindersTab extends StatelessWidget {
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Completed today',
-                  style: TextStyle(
+              Text(Translations.get(lang, 'completed_today'),
+                  style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary)),
@@ -979,29 +1003,31 @@ class _MessageTabState extends State<_MessageTab> {
     _controller.clear();
     if (mounted) setState(() => _sending = false);
     if (mounted) {
+      final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message sent')),
+        SnackBar(content: Text(Translations.get(lang, 'message_sent'))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Send a message to your patient',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          Text(
+            Translations.get(lang, 'send_message_to_patient'),
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
             maxLines: 4,
             decoration: InputDecoration(
-              hintText: 'e.g. Great progress this week! Keep it up.',
+              hintText: Translations.get(lang, 'message_hint'),
               filled: true,
               fillColor: AppColors.surface,
               border: OutlineInputBorder(
@@ -1033,8 +1059,8 @@ class _MessageTabState extends State<_MessageTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Send',
-                      style: TextStyle(
+                  : Text(Translations.get(lang, 'send_btn'),
+                      style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: Colors.white)),

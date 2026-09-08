@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:rehab_assist/screens/patient_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../services/language_provider.dart';
+import '../l10n/translations.dart';
 import 'login_screen.dart';
 
 class DoctorScreen extends StatefulWidget {
@@ -23,6 +26,7 @@ class _DoctorScreenState extends State<DoctorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(
@@ -42,21 +46,21 @@ class _DoctorScreenState extends State<DoctorScreen> {
                 _NavItem(
                   icon: Icons.people_outline,
                   activeIcon: Icons.people,
-                  label: 'Patients',
+                  label: Translations.get(lang, 'nav_patients'),
                   isActive: _currentIndex == 0,
                   onTap: () => setState(() => _currentIndex = 0),
                 ),
                 _NavItem(
                   icon: Icons.notifications_outlined,
                   activeIcon: Icons.notifications,
-                  label: 'Flags',
+                  label: Translations.get(lang, 'nav_flags'),
                   isActive: _currentIndex == 1,
                   onTap: () => setState(() => _currentIndex = 1),
                 ),
                 _NavItem(
                   icon: Icons.person_outline,
                   activeIcon: Icons.person,
-                  label: 'Profile',
+                  label: Translations.get(lang, 'nav_profile'),
                   isActive: _currentIndex == 2,
                   onTap: () => setState(() => _currentIndex = 2),
                 ),
@@ -149,13 +153,14 @@ class _PatientsTabState extends State<_PatientsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        title: const Text('My Patients',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        title: Text(Translations.get(lang, 'doctor_my_patients_title'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -165,14 +170,14 @@ class _PatientsTabState extends State<_PatientsTab> {
                   ? ListView(
                       children: [
                         SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                        const Column(children: [
-                          Icon(Icons.people_outline, size: 48, color: AppColors.divider),
-                          SizedBox(height: 16),
-                          Text('No Patients Yet',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                          SizedBox(height: 8),
-                          Text('Share your invite code from the profile tab',
-                              style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                        Column(children: [
+                          const Icon(Icons.people_outline, size: 48, color: AppColors.divider),
+                          const SizedBox(height: 16),
+                          Text(Translations.get(lang, 'doctor_no_patients_title'),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                          const SizedBox(height: 8),
+                          Text(Translations.get(lang, 'doctor_no_patients_subtitle'),
+                              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                         ]),
                       ],
                     )
@@ -196,6 +201,7 @@ class _PatientCard extends StatelessWidget {
   const _PatientCard({required this.patient, required this.onRefresh});
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final symptoms = patient['recentSymptoms'] as List? ?? [];
     final latest = symptoms.isNotEmpty ? symptoms.first : null;
     final aiAnalysis = latest?['aiAnalysis'] as Map<String, dynamic>?;
@@ -236,11 +242,11 @@ class _PatientCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(patient['fullName'] ?? 'Unknown',
+              Text(patient['fullName'] ?? Translations.get(lang, 'unknown'),
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
               const SizedBox(height: 2),
-              Text('${patient['age'] ?? '—'} y.o. • ${patient['gender'] ?? '—'}',
+              Text('${patient['age'] ?? '—'} ${Translations.get(lang, 'years_old_suffix')} • ${patient['gender'] ?? '—'}',
                   style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             ]),
           ),
@@ -286,6 +292,7 @@ class _AlertsTabState extends State<_AlertsTab> {
 
   Future<void> _loadFlags() async {
     setState(() => _loading = true);
+    final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
     try {
       final patients = await FirestoreService.getAllPatients();
       final flagged = <Map<String, dynamic>>[];
@@ -294,7 +301,7 @@ class _AlertsTabState extends State<_AlertsTab> {
         final symptoms = await FirestoreService.getPatientSymptomsWeek(p['id']);
         if (symptoms.isEmpty) {
           // Inactive — no logs in 7 days
-          flagged.add({...p, '_flagReason': 'inactive', '_flagSeverity': 'inactive'});
+          flagged.add({...p, '_flagReason': Translations.get(lang, 'flag_reason_inactive'), '_flagSeverity': 'inactive'});
           return;
         }
 
@@ -303,7 +310,7 @@ class _AlertsTabState extends State<_AlertsTab> {
           final s = Map<String, dynamic>.from(log['symptoms'] ?? {});
           for (final key in s.keys) {
             if (_redFlagKeywords.any((f) => key.toLowerCase().contains(f))) {
-              flagged.add({...p, '_flagReason': 'Red flag symptom: $key', '_flagSeverity': 'critical'});
+              flagged.add({...p, '_flagReason': '${Translations.get(lang, 'flag_reason_red_symptom_prefix')}$key', '_flagSeverity': 'critical'});
               return;
             }
           }
@@ -322,7 +329,7 @@ class _AlertsTabState extends State<_AlertsTab> {
         if (daysWithData > 0 && totalAvg / daysWithData > 3.5) {
           flagged.add({
             ...p,
-            '_flagReason': 'High avg severity (${(totalAvg / daysWithData).toStringAsFixed(1)}/5)',
+            '_flagReason': '${Translations.get(lang, 'flag_reason_high_severity_prefix')}${(totalAvg / daysWithData).toStringAsFixed(1)}/5)',
             '_flagSeverity': 'high',
           });
         }
@@ -342,14 +349,15 @@ class _AlertsTabState extends State<_AlertsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
         title: Row(children: [
-          const Text('Flags',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          Text(Translations.get(lang, 'nav_flags'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           if (!_loading && _flagged.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
@@ -370,15 +378,15 @@ class _AlertsTabState extends State<_AlertsTab> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _flagged.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.check_circle_outline, size: 48, color: AppColors.divider),
-                    SizedBox(height: 16),
-                    Text('No Active Flags',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                    SizedBox(height: 8),
-                    Text('All patients are doing well',
-                        style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                    const Icon(Icons.check_circle_outline, size: 48, color: AppColors.divider),
+                    const SizedBox(height: 16),
+                    Text(Translations.get(lang, 'doctor_no_active_flags'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    const SizedBox(height: 8),
+                    Text(Translations.get(lang, 'doctor_all_well'),
+                        style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                   ]),
                 )
               : ListView.separated(
@@ -397,6 +405,7 @@ class _FlagCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final severity = patient['_flagSeverity'] as String;
     final reason = patient['_flagReason'] as String;
 
@@ -413,10 +422,10 @@ class _FlagCard extends StatelessWidget {
             : Icons.notifications_off_outlined;
 
     final label = severity == 'critical'
-        ? 'CRITICAL'
+        ? Translations.get(lang, 'flag_critical')
         : severity == 'high'
-            ? 'HIGH RISK'
-            : 'INACTIVE';
+            ? Translations.get(lang, 'flag_high_risk')
+            : Translations.get(lang, 'flag_inactive');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -437,7 +446,7 @@ class _FlagCard extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(patient['fullName'] ?? 'Unknown',
+            Text(patient['fullName'] ?? Translations.get(lang, 'unknown'),
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const SizedBox(height: 3),
             Text(reason,
@@ -480,13 +489,14 @@ class _ProfileTabState extends State<_ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        title: const Text('Profile',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        title: Text(Translations.get(lang, 'nav_profile'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.textSecondary),
@@ -513,11 +523,11 @@ class _ProfileTabState extends State<_ProfileTab> {
                     border: Border.all(color: AppColors.divider, width: 0.5),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Row(children: [
-                      Icon(Icons.link, size: 16, color: AppColors.primary),
-                      SizedBox(width: 8),
-                      Text('Invite code for patients',
-                          style: TextStyle(
+                    Row(children: [
+                      const Icon(Icons.link, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(Translations.get(lang, 'doctor_invite_code_label'),
+                          style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary)),
@@ -556,7 +566,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              _codeCopied ? 'Copied' : 'Copy',
+                              _codeCopied ? Translations.get(lang, 'copied_btn') : Translations.get(lang, 'copy_btn'),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -567,8 +577,8 @@ class _ProfileTabState extends State<_ProfileTab> {
                       ),
                     ]),
                     const SizedBox(height: 8),
-                    const Text('Share this code with your patient — they enter it in their profile',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+                    Text(Translations.get(lang, 'doctor_invite_share_hint'),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
                   ]),
                 ),
 
