@@ -199,18 +199,19 @@ InputDecoration inputDecoration(String hint) => InputDecoration(
 class NavButtons extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onNext;
-  final String nextLabel;
+  final String? nextLabel;
   final IconData nextIcon;
 
-  const NavButtons({super.key, 
+  const NavButtons({super.key,
     required this.onBack,
     required this.onNext,
-    this.nextLabel = 'Continue',
+    this.nextLabel,
     this.nextIcon = Icons.arrow_forward,
   });
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -218,13 +219,13 @@ class NavButtons extends StatelessWidget {
           onPressed: onBack,
           icon: const Icon(Icons.arrow_back,
               size: 16, color: AppColors.textSecondary),
-          label: Text(Translations.get(Provider.of<LanguageProvider>(context).currentLanguage, 'back'),
+          label: Text(Translations.get(lang, 'back'),
               style: const TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton.icon(
           onPressed: onNext,
           icon: Icon(nextIcon, size: 16),
-          label: Text(nextLabel),
+          label: Text(nextLabel ?? Translations.get(lang, 'next')),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,

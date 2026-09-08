@@ -42,7 +42,7 @@ class _SignupScreenState extends State<SignupScreen> {
     final password        = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (name.isEmpty) {
+    if (_role == 'doctor' && name.isEmpty) {
       _showError(Translations.get(lang, 'signup_err_name'));
       return;
     }
@@ -71,7 +71,8 @@ class _SignupScreenState extends State<SignupScreen> {
     if (error != null) {
       _showError(error);
     } else {
-      await FirestoreService.saveRole(_role, fullName: name);
+      await FirestoreService.saveRole(_role,
+          fullName: _role == 'doctor' ? name : null);
       if (!mounted) return;
       if (_role == 'doctor') {
         Navigator.of(context).pushReplacement(
@@ -145,60 +146,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                   const SizedBox(height: 28),
 
-                  // Full Name
-                  _label(Translations.get(lang, 'signup_full_name')),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _nameController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: _dec(Translations.get(lang, 'signup_name_hint')),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Email
-                  _label(Translations.get(lang, 'login_email')),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: _dec(Translations.get(lang, 'signup_email_hint')),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Password
-                  _label(Translations.get(lang, 'login_password')),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: _dec(Translations.get(lang, 'signup_pass_hint')).copyWith(
-                      suffixIcon: GestureDetector(
-                        onTap: () => setState(() => _obscurePassword = !_obscurePassword),
-                        child: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                            color: AppColors.textSecondary, size: 20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Confirm Password
-                  _label(Translations.get(lang, 'signup_confirm_pass')),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _confirmPasswordController,
-                    obscureText: _obscureConfirmPassword,
-                    decoration: _dec(Translations.get(lang, 'signup_confirm_hint')).copyWith(
-                      suffixIcon: GestureDetector(
-                        onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                        child: Icon(_obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                            color: AppColors.textSecondary, size: 20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
                   // Role selector
-                  const SizedBox(height: 20),
                   _label(Translations.get(lang, 'signup_i_am')),
                   const SizedBox(height: 8),
                   Row(children: [
@@ -242,6 +190,61 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     )),
                   ]),
+                  const SizedBox(height: 20),
+
+                  // Full Name — doctors only; patients enter it during onboarding
+                  if (_role == 'doctor') ...[
+                    _label(Translations.get(lang, 'signup_full_name')),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _nameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: _dec(Translations.get(lang, 'signup_name_hint')),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Email
+                  _label(Translations.get(lang, 'login_email')),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: _dec(Translations.get(lang, 'signup_email_hint')),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Password
+                  _label(Translations.get(lang, 'login_password')),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: _dec(Translations.get(lang, 'signup_pass_hint')).copyWith(
+                      suffixIcon: GestureDetector(
+                        onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                        child: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            color: AppColors.textSecondary, size: 20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Confirm Password
+                  _label(Translations.get(lang, 'signup_confirm_pass')),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    decoration: _dec(Translations.get(lang, 'signup_confirm_hint')).copyWith(
+                      suffixIcon: GestureDetector(
+                        onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                        child: Icon(_obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            color: AppColors.textSecondary, size: 20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
                   // Terms checkbox
                   const SizedBox(height: 8),

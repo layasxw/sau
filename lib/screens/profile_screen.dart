@@ -22,7 +22,8 @@ class ProfileScreen extends StatefulWidget {
         final lang = Provider.of<LanguageProvider>(ctx).currentLanguage;
         return AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Text(Translations.get(lang, 'sign_out'),
               style: const TextStyle(
                   fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
@@ -105,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final role = profile?['role'] as String? ?? 'patient';
     String? inviteCode;
-    
+
     setState(() {
       _role = role;
       _fullName = profile?['fullName'] as String?;
@@ -134,10 +135,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _showEditPersonalInfo() async {
     final nameCtrl = TextEditingController(text: _fullName);
     final ageCtrl = TextEditingController(text: _age?.toString());
-    final heightCtrl =
-        TextEditingController(text: _height?.toStringAsFixed(1));
-    final weightCtrl =
-        TextEditingController(text: _weight?.toStringAsFixed(1));
+    final heightCtrl = TextEditingController(text: _height?.toStringAsFixed(1));
+    final weightCtrl = TextEditingController(text: _weight?.toStringAsFixed(1));
     String? gender = _gender;
 
     await showDialog(
@@ -154,8 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               _EditField('Full Name', nameCtrl),
               const SizedBox(height: 12),
-              _EditField('Age', ageCtrl,
-                  keyboardType: TextInputType.number),
+              _EditField('Age', ageCtrl, keyboardType: TextInputType.number),
               const SizedBox(height: 12),
               _EditField('Height (cm)', heightCtrl,
                   keyboardType:
@@ -166,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const TextInputType.numberWithOptions(decimal: true)),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: gender,
+                initialValue: gender,
                 decoration: InputDecoration(
                   labelText: 'Gender',
                   filled: true,
@@ -191,8 +189,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ElevatedButton(
               onPressed: () async {
                 final fields = <String, dynamic>{};
-                if (nameCtrl.text.trim().isNotEmpty)
+                if (nameCtrl.text.trim().isNotEmpty) {
                   fields['fullName'] = nameCtrl.text.trim();
+                }
                 final age = int.tryParse(ageCtrl.text.trim());
                 if (age != null) fields['age'] = age;
                 final height = double.tryParse(heightCtrl.text.trim());
@@ -223,15 +222,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Edit Medical Profile ──────────────────────────────────────────────────
   Future<void> _showEditMedicalProfile() async {
+    final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
     final histCtrl = TextEditingController(text: _medicalHistory);
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Edit Medical Profile',
-            style: TextStyle(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(Translations.get(lang, 'edit_medical_profile_title'),
+            style: const TextStyle(
                 fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -239,7 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               controller: histCtrl,
               maxLines: 6,
               decoration: InputDecoration(
-                labelText: 'Medical History',
+                labelText: Translations.get(lang, 'medical_history_label'),
                 filled: true,
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
@@ -252,8 +251,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(Translations.get(lang, 'cancel'),
+                style: const TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -268,14 +267,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 elevation: 0),
-            child: const Text('Save',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(Translations.get(lang, 'save_btn'),
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -323,8 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.white.withOpacity(0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withOpacity(0.4),
-                            width: 1.5)),
+                            color: Colors.white.withOpacity(0.4), width: 1.5)),
                     child: Icon(
                       isDoctor
                           ? CupertinoIcons.person_crop_circle_badge_checkmark
@@ -348,8 +345,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontWeight: FontWeight.w500)),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -395,12 +392,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onEdit: _showEditPersonalInfo,
                   children: [
                     _Row(Translations.get(lang, 'full_name'), _fullName ?? '-'),
-                    _Row(Translations.get(lang, 'age'), _age?.toString() ?? '-'),
+                    _Row(
+                        Translations.get(lang, 'age'), _age?.toString() ?? '-'),
                     _Row(Translations.get(lang, 'gender'), _gender ?? '-'),
-                    _Row(Translations.get(lang, 'height'),
-                        _height != null ? '${_height!.toStringAsFixed(1)} cm' : '-'),
-                    _Row(Translations.get(lang, 'weight'),
-                        _weight != null ? '${_weight!.toStringAsFixed(1)} kg' : '-'),
+                    _Row(
+                        Translations.get(lang, 'height'),
+                        _height != null
+                            ? '${_height!.toStringAsFixed(1)} cm'
+                            : '-'),
+                    _Row(
+                        Translations.get(lang, 'weight'),
+                        _weight != null
+                            ? '${_weight!.toStringAsFixed(1)} kg'
+                            : '-'),
                   ]),
               const SizedBox(height: 16),
 
@@ -413,30 +417,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // ── Patient: medical profile + doctor link ────────────────────
               if (!isDoctor) ...[
                 _EditableCard(
-                    title: 'Medical Profile',
+                    title: Translations.get(lang, 'medical_profile_title'),
                     icon: CupertinoIcons.heart_solid,
                     onEdit: _showEditMedicalProfile,
                     children: [
-                      _Row('Diagnosis', _diagnosis ?? '-'),
-                      _Row('Medical history', _medicalHistory ?? '-',
+                      _Row(Translations.get(lang, 'diagnosis_label'),
+                          _diagnosis != null
+                              ? _translateMedicalOption(_diagnosis!, lang)
+                              : '-'),
+                      _Row(Translations.get(lang, 'medical_history_label'),
+                          _medicalHistory ?? '-',
                           multiline: true),
                     ]),
                 const SizedBox(height: 16),
-
                 _Card(
-                    title: 'Health Restrictions',
+                    title: Translations.get(lang, 'health_restrictions_title'),
                     icon: CupertinoIcons.exclamationmark_shield,
                     children: [
-                      _ChipRow('Allergies', _allergies),
+                      _ChipRow(
+                          Translations.get(lang, 'allergies_label'),
+                          _allergies
+                              .map((v) => _translateMedicalOption(v, lang))
+                              .toList(),
+                          lang: lang),
                       if (_allergies.isNotEmpty) const SizedBox(height: 16),
-                      _ChipRow('Chronic conditions', _chronicDiseases),
+                      _ChipRow(
+                          Translations.get(lang, 'chronic_conditions_label'),
+                          _chronicDiseases
+                              .map((v) => _translateMedicalOption(v, lang))
+                              .toList(),
+                          lang: lang),
                       if (_chronicDiseases.isNotEmpty)
                         const SizedBox(height: 16),
-                      _ChipRow('Dietary restrictions', _dietaryRestrictions),
+                      _ChipRow(
+                          Translations.get(lang, 'dietary_restrictions_label'),
+                          _dietaryRestrictions
+                              .map((v) => _translateMedicalOption(v, lang))
+                              .toList(),
+                          lang: lang),
                     ]),
                 const SizedBox(height: 16),
-
-                
               ],
 
               const SizedBox(height: 16),
@@ -481,13 +501,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final active = current == lang;
 
     return GestureDetector(
-      onTap: () => Provider.of<LanguageProvider>(context, listen: false).setLanguage(lang),
+      onTap: () => Provider.of<LanguageProvider>(context, listen: false)
+          .setLanguage(lang),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
           color: active ? AppColors.primary : AppColors.background,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: active ? AppColors.primary : AppColors.divider),
+          border:
+              Border.all(color: active ? AppColors.primary : AppColors.divider),
         ),
         child: Text(
           label,
@@ -560,8 +582,8 @@ class _DoctorInviteCardState extends State<_DoctorInviteCard> {
                 decoration: BoxDecoration(
                     color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2))),
+                    border:
+                        Border.all(color: AppColors.primary.withOpacity(0.2))),
                 child: Center(
                   child: Text(
                     widget.inviteCode,
@@ -677,8 +699,8 @@ class _DoctorLinkCard extends StatelessWidget {
                             fontWeight: FontWeight.w500)),
                   ])),
               Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                       color: const Color(0xFF10B981).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20)),
@@ -697,8 +719,7 @@ class _DoctorLinkCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.accent.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppColors.accent.withOpacity(0.2)),
+                  border: Border.all(color: AppColors.accent.withOpacity(0.2)),
                 ),
                 child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -719,9 +740,7 @@ class _DoctorLinkCard extends StatelessWidget {
             const Text(
               'You are not linked to any doctor yet. Enter your doctor\'s invite code to share your health data with them.',
               style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  height: 1.45),
+                  fontSize: 13, color: AppColors.textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
             GestureDetector(
@@ -742,8 +761,7 @@ class _DoctorLinkCard extends StatelessWidget {
                 child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(CupertinoIcons.link,
-                          size: 16, color: Colors.white),
+                      Icon(CupertinoIcons.link, size: 16, color: Colors.white),
                       SizedBox(width: 8),
                       Text('Enter invite code',
                           style: TextStyle(
@@ -809,7 +827,8 @@ class _Row extends StatelessWidget {
     if (multiline) {
       return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
                 style: const TextStyle(
                     fontSize: 13,
@@ -826,29 +845,29 @@ class _Row extends StatelessWidget {
     }
     return Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label,
+        child:
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600)),
+          Flexible(
+              child: Text(value,
+                  textAlign: TextAlign.end,
                   style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600)),
-              Flexible(
-                  child: Text(value,
-                      textAlign: TextAlign.end,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary))),
-            ]));
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary))),
+        ]));
   }
 }
 
 class _ChipRow extends StatelessWidget {
   final String label;
   final List<String> values;
-  const _ChipRow(this.label, this.values);
+  final AppLanguage lang;
+  const _ChipRow(this.label, this.values, {required this.lang});
   @override
   Widget build(BuildContext context) {
     if (values.isEmpty) {
@@ -859,8 +878,8 @@ class _ChipRow extends StatelessWidget {
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
-        const Text('None',
-            style: TextStyle(
+        Text(Translations.get(lang, 'none_label'),
+            style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w500)),
@@ -878,8 +897,8 @@ class _ChipRow extends StatelessWidget {
           runSpacing: 8,
           children: values
               .map((v) => Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(20),
@@ -899,7 +918,7 @@ class _ChipRow extends StatelessWidget {
 class _BouncingWrapper extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
-  const _BouncingWrapper({super.key, required this.child, this.onTap});
+  const _BouncingWrapper({required this.child, this.onTap});
   @override
   State<_BouncingWrapper> createState() => _BouncingWrapperState();
 }
@@ -913,19 +932,20 @@ class _BouncingWrapperState extends State<_BouncingWrapper>
     super.initState();
     _controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 100));
-    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _scale = Tween<double>(begin: 1.0, end: 0.96)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) =>
-            widget.onTap != null ? _controller.forward() : null,
+        onTapDown: (_) => widget.onTap != null ? _controller.forward() : null,
         onTapUp: (_) {
           if (widget.onTap != null) {
             _controller.reverse();
@@ -1012,4 +1032,53 @@ class _EditField extends StatelessWidget {
               borderSide: BorderSide.none),
         ),
       );
+}
+
+/// Diagnosis/allergy/chronic-condition/diet values are stored as fixed
+/// English keys (see onboarding/steps/diagnosis_step.dart and
+/// restrictions_step.dart) so they stay stable in Firestore regardless of
+/// UI language. This maps a stored value back to the current language for
+/// display; free-text values (e.g. a custom "Other" diagnosis) pass through
+/// unchanged since they were never part of the fixed option list.
+String _translateMedicalOption(String value, AppLanguage lang) {
+  const labelKeys = {
+    // Diagnosis (diagnosis_step.dart)
+    'Stomach cancer (Stage 1)': 'diag_stomach_1',
+    'Stomach cancer (Stage 2)': 'diag_stomach_2',
+    'Stomach cancer (Stage 3)': 'diag_stomach_3',
+    'Gastric lymphoma (MALT / DLBCL)': 'diag_lymphoma',
+    'Gastrointestinal stromal tumor (GIST)': 'diag_gist',
+    // Allergies (restrictions_step.dart)
+    'Peanuts': 'allergy_peanuts',
+    'Tree nuts': 'allergy_tree_nuts',
+    'Milk': 'allergy_milk',
+    'Eggs': 'allergy_eggs',
+    'Wheat': 'allergy_wheat',
+    'Soy': 'allergy_soy',
+    'Fish': 'allergy_fish',
+    'Shellfish': 'allergy_shellfish',
+    'Sesame': 'allergy_sesame',
+    'Penicillin': 'allergy_penicillin',
+    'Sulfa drugs': 'allergy_sulfa',
+    // Chronic conditions (restrictions_step.dart)
+    'Diabetes': 'chronic_diabetes',
+    'Hypertension': 'chronic_hypertension',
+    'Heart disease': 'chronic_heart',
+    'Asthma': 'chronic_asthma',
+    'Arthritis': 'chronic_arthritis',
+    'Thyroid disorder': 'chronic_thyroid',
+    'Kidney disease': 'chronic_kidney',
+    'COPD': 'chronic_copd',
+    // Dietary restrictions (restrictions_step.dart)
+    'Vegetarian': 'diet_veg',
+    'Vegan': 'diet_vegan',
+    'Gluten-free': 'diet_gluten_free',
+    'Lactose-free': 'diet_lactose_free',
+    'Low-sodium': 'diet_low_sodium',
+    'Low-sugar': 'diet_low_sugar',
+    'Halal': 'diet_halal',
+    'Kosher': 'diet_kosher',
+  };
+  final key = labelKeys[value];
+  return key != null ? Translations.get(lang, key) : value;
 }

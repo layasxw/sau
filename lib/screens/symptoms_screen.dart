@@ -91,7 +91,9 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
     // Native
     if (!_isListening) {
       final available = await _speech.initialize(
-        onError: (e) { if (mounted) setState(() => _isListening = false); },
+        onError: (e) {
+          if (mounted) setState(() => _isListening = false);
+        },
         onStatus: (s) {
           if ((s == 'done' || s == 'notListening') && mounted) {
             setState(() => _isListening = false);
@@ -104,7 +106,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Микрофон недоступен. Разрешите доступ.')),
+            const SnackBar(
+                content: Text('Микрофон недоступен. Разрешите доступ.')),
           );
         }
       }
@@ -151,8 +154,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                   Text(Translations.get(lang, 'nav_symptoms'),
                       style: Theme.of(context).textTheme.displayLarge),
                   const SizedBox(height: 4),
-                  Text(
-                      Translations.get(lang, 'symptoms_subtitle'),
+                  Text(Translations.get(lang, 'symptoms_subtitle'),
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 24),
                   Row(children: [
@@ -230,8 +232,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           Text(Translations.get(lang, 'no_symptoms_logged'),
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
-          Text(
-              Translations.get(lang, 'symptoms_subtitle'),
+          Text(Translations.get(lang, 'symptoms_subtitle'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                   fontSize: 14, color: AppColors.textSecondary, height: 1.45)),
@@ -252,7 +253,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(Translations.get(lang, 'view_trends'), style: Theme.of(context).textTheme.titleLarge),
+          Text(Translations.get(lang, 'view_trends'),
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 20),
           SizedBox(
             height: 120,
@@ -330,10 +332,10 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
     super.initState();
     _pulse = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900));
-    _scale = Tween<double>(begin: 1.0, end: 1.65).animate(
-        CurvedAnimation(parent: _pulse, curve: Curves.easeOut));
-    _opacity = Tween<double>(begin: 0.4, end: 0.0).animate(
-        CurvedAnimation(parent: _pulse, curve: Curves.easeOut));
+    _scale = Tween<double>(begin: 1.0, end: 1.65)
+        .animate(CurvedAnimation(parent: _pulse, curve: Curves.easeOut));
+    _opacity = Tween<double>(begin: 0.4, end: 0.0)
+        .animate(CurvedAnimation(parent: _pulse, curve: Curves.easeOut));
   }
 
   @override
@@ -348,13 +350,20 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
   }
 
   @override
-  void dispose() { _pulse.dispose(); super.dispose(); }
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () { widget.onTap(); HapticFeedback.mediumImpact(); },
+        onTap: () {
+          widget.onTap();
+          HapticFeedback.mediumImpact();
+        },
         child: SizedBox(
-          width: 72, height: 72,
+          width: 72,
+          height: 72,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -364,7 +373,8 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
                   builder: (_, __) => Transform.scale(
                     scale: _scale.value,
                     child: Container(
-                      width: 60, height: 60,
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.accent.withOpacity(_opacity.value)),
@@ -372,24 +382,32 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
                   ),
                 ),
               Container(
-                width: 60, height: 60,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: widget.isListening
-                      ? LinearGradient(
-                          colors: [AppColors.accent, AppColors.accent.withOpacity(0.75)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight)
+                      ? LinearGradient(colors: [
+                          AppColors.accent,
+                          AppColors.accent.withOpacity(0.75)
+                        ], begin: Alignment.topLeft, end: Alignment.bottomRight)
                       : AppGradients.primary,
                   boxShadow: [
                     BoxShadow(
-                        color: (widget.isListening ? AppColors.accent : AppColors.primary)
+                        color: (widget.isListening
+                                ? AppColors.accent
+                                : AppColors.primary)
                             .withOpacity(0.38),
-                        blurRadius: 18, offset: const Offset(0, 6)),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6)),
                   ],
                 ),
                 child: Icon(
-                    widget.isListening ? CupertinoIcons.mic_solid : CupertinoIcons.mic,
-                    size: 26, color: Colors.white),
+                    widget.isListening
+                        ? CupertinoIcons.mic_solid
+                        : CupertinoIcons.mic,
+                    size: 26,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -405,7 +423,9 @@ class _LogCard extends StatelessWidget {
 
   Color get _c => log.avg <= 2
       ? const Color(0xFF10B981)
-      : log.avg <= 3 ? const Color(0xFFF59E0B) : AppColors.accent;
+      : log.avg <= 3
+          ? const Color(0xFFF59E0B)
+          : AppColors.accent;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -414,82 +434,76 @@ class _LogCard extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: AppColors.divider, width: 0.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 40, offset: const Offset(0, 10))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 40,
+                offset: const Offset(0, 10))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Text('${log.date.day}/${log.date.month}/${log.date.year}',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const Spacer(),
             Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                child: Text('${Translations.get(lang, 'symptom_severity')} ${log.avg}/5',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                    color: _c.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                    '${Translations.get(lang, 'symptom_severity')} ${log.avg}/5',
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700, color: _c))),
           ]),
           const SizedBox(height: 16),
           Wrap(
-              spacing: 8, runSpacing: 8,
+              spacing: 8,
+              runSpacing: 8,
               children: log.symptoms.entries.map((e) {
                 final c = e.value <= 2
                     ? const Color(0xFF10B981)
-                    : e.value <= 3 ? const Color(0xFFF59E0B) : AppColors.accent;
+                    : e.value <= 3
+                        ? const Color(0xFFF59E0B)
+                        : AppColors.accent;
                 final name = _translateSymptom(e.key, lang);
                 return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: c.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20)),
                     child: Text('$name · ${e.value}/5',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)));
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: c)));
               }).toList()),
           if (log.mood.isNotEmpty) ...[
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(CupertinoIcons.smiley, size: 16, color: AppColors.textSecondary),
+              const Icon(CupertinoIcons.smiley,
+                  size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Text('Mood: ${_translateMood(log.mood, lang)}',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500)),
             ]),
           ],
           if (log.notes.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(log.notes, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+            Text(log.notes,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
           ],
-          const SizedBox(height: 16),
-          _AiTip(log: log, lang: lang),
         ]),
       );
-}
-
-class _AiTip extends StatelessWidget {
-  final _Log log;
-  final AppLanguage lang;
-  const _AiTip({required this.log, required this.lang});
-
-  @override
-  Widget build(BuildContext context) {
-    final ai = log.aiAnalysis;
-    final text = ai != null
-        ? '${ai['summary'] ?? ''} ${ai['advice'] ?? ''}'.trim()
-        : 'Continue monitoring your symptoms and discuss them at your next appointment.';
-    final isHigh = ai?['risk'] == 'high';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: isHigh ? AppColors.accent.withOpacity(0.05) : AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: isHigh ? AppColors.accent.withOpacity(0.2) : AppColors.primary.withOpacity(0.1))),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(CupertinoIcons.sparkles, size: 18, color: isHigh ? AppColors.accent : AppColors.primary),
-        const SizedBox(width: 12),
-        Expanded(child: Text(text,
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w500,
-                color: isHigh ? AppColors.accent : AppColors.textPrimary, height: 1.4))),
-      ]),
-    );
-  }
 }
 
 class _Toggle extends StatelessWidget {
@@ -501,16 +515,18 @@ class _Toggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     return Container(
-        height: 40,
-        decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.divider, width: 0.5)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          _seg(Translations.get(lang, 'filter_all'), showList, () => onChanged(true)),
-          _seg(Translations.get(lang, 'view_trends'), !showList, () => onChanged(false)),
-        ]),
-      );
+      height: 40,
+      decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.divider, width: 0.5)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        _seg(Translations.get(lang, 'filter_all'), showList,
+            () => onChanged(true)),
+        _seg(Translations.get(lang, 'view_trends'), !showList,
+            () => onChanged(false)),
+      ]),
+    );
   }
 
   Widget _seg(String label, bool sel, VoidCallback tap) => GestureDetector(
@@ -551,15 +567,24 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
   static const _categories = {
     'Digestive 🍽️': [
-      'Abdominal pain', 'Nausea', 'Vomiting (single)', 'Vomiting (multiple)',
-      'Bloating', 'Diarrhea', 'Constipation', 'Heartburn', 'Loss of appetite'
+      'Abdominal pain',
+      'Nausea',
+      'Vomiting (single)',
+      'Vomiting (multiple)',
+      'Bloating',
+      'Diarrhea',
+      'Constipation',
+      'Heartburn',
+      'Loss of appetite'
     ],
     'Energy & Body 💪': [
-      'Fatigue', 'Weakness', 'Fever', 'Weight loss', 'Dizziness'
+      'Fatigue',
+      'Weakness',
+      'Fever',
+      'Weight loss',
+      'Dizziness'
     ],
   };
-  
-
 
   final Map<String, int> _sel = {};
   String _mood = '';
@@ -609,7 +634,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                   onResult: (text) {
                     if (!mounted) return;
                     final cur = _aiText.text.trim();
-                    setState(() => _aiText.text = cur.isEmpty ? text : '$cur $text');
+                    setState(
+                        () => _aiText.text = cur.isEmpty ? text : '$cur $text');
                   },
                   onEnd: () {},
                   onError: () {
@@ -630,7 +656,9 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     // ── Native (Android / iOS) ────────────────────────────────────────────────
     if (!_isListening) {
       final available = await _speech.initialize(
-        onError: (e) { if (mounted) setState(() => _isListening = false); },
+        onError: (e) {
+          if (mounted) setState(() => _isListening = false);
+        },
         onStatus: (s) {
           if ((s == 'done' || s == 'notListening') && mounted) {
             setState(() => _isListening = false);
@@ -646,7 +674,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
             if (recognized.isEmpty) return;
             final current = _aiText.text.trim();
             setState(() {
-              _aiText.text = current.isEmpty ? recognized : '$current $recognized';
+              _aiText.text =
+                  current.isEmpty ? recognized : '$current $recognized';
             });
           },
           listenFor: Duration.zero,
@@ -656,7 +685,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Микрофон недоступен. Разрешите доступ.')),
+            const SnackBar(
+                content: Text('Микрофон недоступен. Разрешите доступ.')),
           );
         }
       }
@@ -669,7 +699,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
   Future<void> _analyzeWithAI() async {
     if (_aiText.text.trim().isEmpty) return;
     setState(() => _aiLoading = true);
-    final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
+    final lang =
+        Provider.of<LanguageProvider>(context, listen: false).languageCode;
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.symptomsUrl),
@@ -680,7 +711,9 @@ class _CheckInSheetState extends State<_CheckInSheet> {
         final data = jsonDecode(response.body);
         if (data.containsKey('error')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('AI не смог обработать запрос, попробуй ещё раз')),
+            const SnackBar(
+                content:
+                    Text('AI не смог обработать запрос, попробуй ещё раз')),
           );
           return;
         }
@@ -688,7 +721,13 @@ class _CheckInSheetState extends State<_CheckInSheet> {
           _sel.clear();
           final symptoms = Map<String, dynamic>.from(data['symptoms'] ?? {});
           symptoms.forEach((k, v) => _sel[k] = (v as num).toInt());
-          const moodMap = {'Great': 'Great', 'Good': 'Good', 'Okay': 'Okay', 'Low': 'Low', 'Bad': 'Bad'};
+          const moodMap = {
+            'Great': 'Great',
+            'Good': 'Good',
+            'Okay': 'Okay',
+            'Low': 'Low',
+            'Bad': 'Bad'
+          };
           _mood = moodMap[data['mood']] ?? data['mood'] ?? '';
           _notes.text = data['notes'] ?? '';
         });
@@ -700,7 +739,12 @@ class _CheckInSheetState extends State<_CheckInSheet> {
     }
   }
 
-  Future<void> _analyzeSymptoms() async {
+  // The AI risk/summary/advice is intentionally not shown to the patient —
+  // it's computed here and saved to Firestore purely so the assigned doctor
+  // can see it on their dashboard (patient_screen.dart's symptom card).
+  // From the patient's side this is a single "Save" action; the analysis
+  // happens quietly in between.
+  Future<void> _analyzeAndSave() async {
     setState(() => _aiLoading = true);
     try {
       final profile = await FirestoreService.getUserProfile();
@@ -713,7 +757,8 @@ class _CheckInSheetState extends State<_CheckInSheet> {
         daysSinceSurgery = DateTime.now().difference(surgeryDate).inDays;
       }
 
-      final lang = Provider.of<LanguageProvider>(context, listen: false).languageCode;
+      final lang =
+          Provider.of<LanguageProvider>(context, listen: false).languageCode;
       final response = await http.post(
         Uri.parse(ApiConfig.analyzeSymptomsUrl),
         headers: {'Content-Type': 'application/json'},
@@ -729,21 +774,25 @@ class _CheckInSheetState extends State<_CheckInSheet> {
       );
 
       if (response.statusCode == 200) {
-        setState(() => _aiResult = jsonDecode(response.body));
+        _aiResult = jsonDecode(response.body);
       }
     } catch (e) {
       debugPrint('AI error: $e');
-    } finally {
-      setState(() => _aiLoading = false);
     }
-  }
 
-  Future<void> _saveAfterAI() async {
     widget.onSave(
-      _Log(id: '', date: DateTime.now(), symptoms: Map.from(_sel), mood: _mood, notes: _notes.text.trim()),
+      _Log(
+          id: '',
+          date: DateTime.now(),
+          symptoms: Map.from(_sel),
+          mood: _mood,
+          notes: _notes.text.trim()),
       _aiResult,
     );
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+      setState(() => _aiLoading = false);
+      Navigator.pop(context);
+    }
   }
 
   bool get _canSave => _sel.isNotEmpty || _mood.isNotEmpty;
@@ -764,8 +813,11 @@ class _CheckInSheetState extends State<_CheckInSheet> {
             const SizedBox(height: 12),
             Center(
               child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 24),
@@ -773,33 +825,58 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(Translations.get(lang, 'new_reminder').replaceAll('Reminder', 'Check-in'), style: Theme.of(context).textTheme.headlineMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                    ),
-                  ]),
+                  Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            Translations.get(lang, 'checkin_title'),
+                            style: Theme.of(context).textTheme.headlineMedium),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                      ]),
                   const Spacer(),
                   GestureDetector(
                     onTap: _listen,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: _isListening ? AppColors.accent.withOpacity(0.08) : AppColors.surface,
+                        color: _isListening
+                            ? AppColors.accent.withOpacity(0.08)
+                            : AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _isListening ? AppColors.accent : AppColors.divider),
+                        border: Border.all(
+                            color: _isListening
+                                ? AppColors.accent
+                                : AppColors.divider),
                       ),
                       child: Row(children: [
-                        Icon(_isListening ? CupertinoIcons.mic_solid : CupertinoIcons.mic,
-                            size: 16, color: _isListening ? AppColors.accent : AppColors.textPrimary),
+                        Icon(
+                            _isListening
+                                ? CupertinoIcons.mic_solid
+                                : CupertinoIcons.mic,
+                            size: 16,
+                            color: _isListening
+                                ? AppColors.accent
+                                : AppColors.textPrimary),
                         const SizedBox(width: 6),
-                        Text(_isListening ? (lang == AppLanguage.en ? 'Listening...' : 'Слушаю...') : (lang == AppLanguage.en ? 'Voice' : 'Голос'),
+                        Text(
+                            _isListening
+                                ? (lang == AppLanguage.en
+                                    ? 'Listening...'
+                                    : 'Слушаю...')
+                                : (lang == AppLanguage.en ? 'Voice' : 'Голос'),
                             style: TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600,
-                                color: _isListening ? AppColors.accent : AppColors.textPrimary)),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _isListening
+                                    ? AppColors.accent
+                                    : AppColors.textPrimary)),
                       ]),
                     ),
                   ),
@@ -812,271 +889,340 @@ class _CheckInSheetState extends State<_CheckInSheet> {
               child: SingleChildScrollView(
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  TextField(
-                    controller: _aiText,
-                    maxLines: 3,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      hintText: 'Опишите симптомы текстом или используйте голос...',
-                      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                      filled: true, fillColor: AppColors.background,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _BouncingWrapper(
-                    onTap: _aiText.text.trim().isNotEmpty && !_aiLoading ? _analyzeWithAI : null,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                padding: EdgeInsets.fromLTRB(
+                    24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _aiText,
+                        maxLines: 3,
+                        style: const TextStyle(
+                            fontSize: 14, color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Опишите симптомы текстом или используйте голос...',
+                          hintStyle: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 13),
+                          filled: true,
+                          fillColor: AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide:
+                                  const BorderSide(color: AppColors.divider)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primary, width: 1.5)),
+                        ),
                       ),
-                      child: _aiLoading
-                          ? const Center(child: SizedBox(width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
-                          : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Icon(CupertinoIcons.sparkles, size: 16, color: AppColors.primary),
-                              SizedBox(width: 8),
-                              Text('Заполнить через AI', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                            ]),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                  const SizedBox(height: 24),
-                  _stepLabel('1', Translations.get(lang, 'new_reminder').replaceAll('New Reminder', 'Select symptoms')),
-                  const SizedBox(height: 16),
-                  ..._categories.entries.map((cat) {
-                    final allSymptoms = cat.value;
-                    final isExpanded = _expandedCategories.contains(cat.key);
-                    final visibleSymptoms = isExpanded ? allSymptoms : allSymptoms.take(4).toList();
-                    final hasMore = allSymptoms.length > 4;
-                    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(cat.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
-                      const SizedBox(height: 12),
-                      Wrap(spacing: 8, runSpacing: 8, children: [
-                        ...visibleSymptoms.map((s) {
-                          final selected = _sel.containsKey(s);
+                      const SizedBox(height: 10),
+                      _BouncingWrapper(
+                        onTap: _aiText.text.trim().isNotEmpty && !_aiLoading
+                            ? _analyzeWithAI
+                            : null,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: AppColors.primary.withOpacity(0.2)),
+                          ),
+                          child: _aiLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.primary)))
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                      Icon(CupertinoIcons.sparkles,
+                                          size: 16, color: AppColors.primary),
+                                      SizedBox(width: 8),
+                                      Text('Заполнить через AI',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary)),
+                                    ]),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Divider(
+                          height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 24),
+                      _stepLabel(
+                          '1', Translations.get(lang, 'checkin_step1_symptoms')),
+                      const SizedBox(height: 16),
+                      ..._categories.entries.map((cat) {
+                        final allSymptoms = cat.value;
+                        final isExpanded =
+                            _expandedCategories.contains(cat.key);
+                        final visibleSymptoms = isExpanded
+                            ? allSymptoms
+                            : allSymptoms.take(4).toList();
+                        final hasMore = allSymptoms.length > 4;
+                        return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_translateCategory(cat.key, lang),
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                      letterSpacing: 0.3)),
+                              const SizedBox(height: 12),
+                              Wrap(spacing: 8, runSpacing: 8, children: [
+                                ...visibleSymptoms.map((s) {
+                                  final selected = _sel.containsKey(s);
+                                  return GestureDetector(
+                                    onTap: () => setState(() => selected
+                                        ? _sel.remove(s)
+                                        : _sel[s] = 2),
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 150),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? AppColors.primary
+                                            : AppColors.background,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                            color: selected
+                                                ? AppColors.primary
+                                                : AppColors.divider),
+                                      ),
+                                      child: Text(_translateSymptom(s, lang),
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: selected
+                                                  ? Colors.white
+                                                  : AppColors.textPrimary)),
+                                    ),
+                                  );
+                                }),
+                                if (hasMore)
+                                  GestureDetector(
+                                    onTap: () => setState(() => isExpanded
+                                        ? _expandedCategories.remove(cat.key)
+                                        : _expandedCategories.add(cat.key)),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.background,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                            color: AppColors.primary
+                                                .withOpacity(0.3)),
+                                      ),
+                                      child: Text(
+                                          isExpanded
+                                              ? Translations.get(lang, 'show_less')
+                                              : '+ ${allSymptoms.length - 4} ${Translations.get(lang, 'more_suffix')}',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary)),
+                                    ),
+                                  ),
+                              ]),
+                              const SizedBox(height: 20),
+                            ]);
+                      }),
+                      if (_sel.containsKey('Vomiting (multiple)') &&
+                          _sel['Vomiting (multiple)']! > 0) ...[
+                        _VomitingWarning(lang: lang),
+                        const SizedBox(height: 20),
+                      ],
+                      if (_sel.isNotEmpty) ...[
+                        if (_sel.keys.any(
+                            (k) => !k.toLowerCase().contains('vomiting'))) ...[
+                          const Divider(
+                              height: 1,
+                              color: AppColors.divider,
+                              thickness: 0.5),
+                          const SizedBox(height: 20),
+                          Text(Translations.get(lang, 'severity_label'),
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                  letterSpacing: 0.3)),
+                          const SizedBox(height: 12),
+                          ..._sel.keys
+                              .where(
+                                  (k) => !k.toLowerCase().contains('vomiting'))
+                              .map((name) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(children: [
+                                      Expanded(
+                                          child: Text(
+                                              _translateSymptom(name, lang),
+                                              style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: AppColors.textPrimary,
+                                                  fontWeight:
+                                                      FontWeight.w500))),
+                                      Text('${_sel[name]}/5',
+                                          style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.primary)),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Slider(
+                                          min: 1,
+                                          max: 5,
+                                          divisions: 4,
+                                          value: _sel[name]!.toDouble(),
+                                          activeColor: AppColors.primary,
+                                          inactiveColor: AppColors.primaryLight,
+                                          onChanged: (v) => setState(
+                                              () => _sel[name] = v.round()),
+                                        ),
+                                      ),
+                                    ]),
+                                  )),
+                          const SizedBox(height: 12),
+                        ],
+                      ],
+                      const Divider(
+                          height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 24),
+                      _stepLabel('2', Translations.get(lang, 'checkin_step2_mood')),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: _moods.map((m) {
+                          final sel = _mood == m['label'];
                           return GestureDetector(
-                            onTap: () => setState(() => selected ? _sel.remove(s) : _sel[s] = 2),
+                            onTap: () => setState(() => _mood = m['label']!),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
-                                color: selected ? AppColors.primary : AppColors.background,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
+                                color: sel
+                                    ? AppColors.primaryLight
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: sel
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                    width: 1.5),
                               ),
-                              child: Text(_translateSymptom(s, lang), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                                  color: selected ? Colors.white : AppColors.textPrimary)),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(m['emoji']!,
+                                        style: const TextStyle(fontSize: 28)),
+                                    const SizedBox(height: 6),
+                                    Text(_translateMood(m['label']!, lang),
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: sel
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            color: sel
+                                                ? AppColors.primary
+                                                : AppColors.textSecondary)),
+                                  ]),
                             ),
                           );
-                        }),
-                        if (hasMore)
-                          GestureDetector(
-                            onTap: () => setState(() => isExpanded
-                                ? _expandedCategories.remove(cat.key)
-                                : _expandedCategories.add(cat.key)),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: AppColors.background,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                              ),
-                              child: Text(isExpanded ? 'Show less' : '+ ${allSymptoms.length - 4} more',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                            ),
-                          ),
-                      ]),
-                      const SizedBox(height: 20),
-                    ]);
-                  }),
-                  if (_sel.containsKey('Vomiting (multiple)') && _sel['Vomiting (multiple)']! > 0) ...[
-                    _VomitingWarning(lang: lang),
-                    const SizedBox(height: 20),
-                  ],
-                  if (_sel.isNotEmpty) ...[
-                    if (_sel.keys.any((k) => !k.toLowerCase().contains('vomiting'))) ...[
-                      const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                      const SizedBox(height: 20),
-                      const Text('Severity', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.3)),
-                      const SizedBox(height: 12),
-                      ..._sel.keys.where((k) => !k.toLowerCase().contains('vomiting')).map((name) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(children: [
-                              Expanded(child: Text(_translateSymptom(name, lang), style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w500))),
-                              Text('${_sel[name]}/5', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                              Expanded(
-                                flex: 2,
-                                child: Slider(
-                                  min: 1, max: 5, divisions: 4,
-                                  value: _sel[name]!.toDouble(),
-                                  activeColor: AppColors.primary,
-                                  inactiveColor: AppColors.primaryLight,
-                                  onChanged: (v) => setState(() => _sel[name] = v.round()),
-                                ),
-                              ),
-                            ]),
-                          )),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
-                  if (_sel.containsKey('Vomiting (multiple)')) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.accent.withOpacity(0.5)),
+                        }).toList(),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.accent, size: 28),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Critical Warning', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.accent)),
-                                const SizedBox(height: 4),
-                                Text('Multiple vomiting episodes can cause severe dehydration. Please CALL YOUR DOCTOR or GO TO THE HOSPITAL immediately.', style: TextStyle(fontSize: 13, color: AppColors.accent.withOpacity(0.9), height: 1.4, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                  const SizedBox(height: 24),
-                  _stepLabel('2', Translations.get(lang, 'profile_title')),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: _moods.map((m) {
-                      final sel = _mood == m['label'];
-                      return GestureDetector(
-                        onTap: () => setState(() => _mood = m['label']!),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: sel ? AppColors.primaryLight : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: sel ? AppColors.primary : Colors.transparent, width: 1.5),
-                          ),
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            Text(m['emoji']!, style: const TextStyle(fontSize: 28)),
-                            const SizedBox(height: 6),
-                            Text(_translateMood(m['label']!, lang), style: TextStyle(fontSize: 12,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? AppColors.primary : AppColors.textSecondary)),
-                          ]),
+                      const SizedBox(height: 24),
+                      const Divider(
+                          height: 1, color: AppColors.divider, thickness: 0.5),
+                      const SizedBox(height: 24),
+                      _stepLabel('3', Translations.get(lang, 'checkin_step3_notes')),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _notes,
+                        maxLines: 3,
+                        style: const TextStyle(
+                            fontSize: 14, color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: lang == AppLanguage.en
+                              ? 'Any notes for your doctor...'
+                              : 'Любые заметки для врача...',
+                          hintStyle: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 14),
+                          filled: true,
+                          fillColor: AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 16),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide:
+                                  const BorderSide(color: AppColors.divider)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primary, width: 1.5)),
                         ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
-                  const SizedBox(height: 24),
-                  _stepLabel('3', Translations.get(lang, 'biometry')),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _notes,
-                    maxLines: 3,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      hintText: lang == AppLanguage.en ? 'Any notes for your doctor...' : 'Любые заметки для врача...',
-                      hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                      filled: true, fillColor: AppColors.background,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.divider)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                    ),
-                  ),
-                  if (_aiResult != null) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _aiResult!['risk'] == 'high' ? AppColors.accent.withOpacity(0.05) : AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: _aiResult!['risk'] == 'high'
-                                ? AppColors.accent.withOpacity(0.3)
-                                : AppColors.primary.withOpacity(0.2)),
                       ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Icon(CupertinoIcons.sparkles, size: 16,
-                              color: _aiResult!['risk'] == 'high' ? AppColors.accent : AppColors.primary),
-                          const SizedBox(width: 8),
-                          Text('AI Insights', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-                              color: _aiResult!['risk'] == 'high' ? AppColors.accent : AppColors.primary)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _aiResult!['risk'] == 'high' ? AppColors.accent
-                                  : (_aiResult!['risk'] == 'medium' ? Colors.orange : const Color(0xFF10B981)),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text((_aiResult!['risk'] ?? '').toString().toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-                          ),
-                        ]),
-                        const SizedBox(height: 12),
-                        Text(_aiResult!['summary'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4)),
-                        const SizedBox(height: 6),
-                        Text(_aiResult!['advice'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
-                        const SizedBox(height: 8),
-                        const Text('This is not medical advice. Please consult your doctor.',
-                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
-                      ]),
-                    ),
-                  ],
-                  const SizedBox(height: 40),
-                ]),
+                      const SizedBox(height: 40),
+                    ]),
               ),
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
-                border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
+                border: Border(
+                    top: BorderSide(color: AppColors.divider, width: 0.5)),
               ),
               child: _BouncingWrapper(
-                  onTap: _canSave && !_aiLoading ? (_aiResult != null ? _saveAfterAI : _analyzeSymptoms) : null,
+                  onTap: _canSave && !_aiLoading ? _analyzeAndSave : null,
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      gradient: (_canSave && !_aiLoading) ? AppGradients.primary : null,
-                      color: (!_canSave || _aiLoading) ? AppColors.divider : null,
+                      gradient: (_canSave && !_aiLoading)
+                          ? AppGradients.primary
+                          : null,
+                      color:
+                          (!_canSave || _aiLoading) ? AppColors.divider : null,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: _aiLoading
-                        ? const Center(child: SizedBox(width: 20, height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
-                        : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(_aiResult != null ? CupertinoIcons.checkmark_alt : CupertinoIcons.sparkles,
-                                size: 18, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text(_aiResult != null ? Translations.get(lang, 'save_symptoms') : (lang == AppLanguage.en ? 'Analyze & Save' : 'Анализ и сохранение'),
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-                          ]),
+                        ? const Center(
+                            child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white)))
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                                const Icon(CupertinoIcons.checkmark_alt,
+                                    size: 18, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(Translations.get(lang, 'save_symptoms'),
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700)),
+                              ]),
                   )),
             ),
           ],
@@ -1087,14 +1233,26 @@ class _CheckInSheetState extends State<_CheckInSheet> {
 
   Widget _stepLabel(String step, String title) => Row(children: [
         Container(
-          width: 24, height: 24,
-          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-          child: Center(child: Text(step, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white))),
+          width: 24,
+          height: 24,
+          decoration: const BoxDecoration(
+              color: AppColors.primary, shape: BoxShape.circle),
+          child: Center(
+              child: Text(step,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white))),
         ),
         const SizedBox(width: 10),
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary, letterSpacing: -0.2)),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2)),
       ]);
-  }
+}
 
 String _translateSymptom(String s, AppLanguage lang) {
   if (lang == AppLanguage.en) return s;
@@ -1102,7 +1260,10 @@ String _translateSymptom(String s, AppLanguage lang) {
     'Abdominal pain': {'ru': 'Боль в животе', 'kk': 'Іштің ауыруы'},
     'Nausea': {'ru': 'Тошнота', 'kk': 'Жүрек айнуы'},
     'Vomiting (single)': {'ru': 'Рвота (однократная)', 'kk': 'Құсу (бір рет)'},
-    'Vomiting (multiple)': {'ru': 'Рвота (многократная)', 'kk': 'Құсу (көп мәрте)'},
+    'Vomiting (multiple)': {
+      'ru': 'Рвота (многократная)',
+      'kk': 'Құсу (көп мәрте)'
+    },
     'Bloating': {'ru': 'Вздутие', 'kk': 'Іштің кебуі'},
     'Diarrhea': {'ru': 'Диарея', 'kk': 'Іш өту'},
     'Constipation': {'ru': 'Запор', 'kk': 'Іш қату'},
@@ -1119,8 +1280,12 @@ String _translateSymptom(String s, AppLanguage lang) {
 
 String _translateCategory(String c, AppLanguage lang) {
   if (lang == AppLanguage.en) return c;
-  if (c.contains('Digestive')) return lang == AppLanguage.ru ? 'Пищеварение 🍽️' : 'Ас қорыту 🍽️';
-  if (c.contains('Energy')) return lang == AppLanguage.ru ? 'Энергия и тело 💪' : 'Энергия және дене 💪';
+  if (c.contains('Digestive'))
+    return lang == AppLanguage.ru ? 'Пищеварение 🍽️' : 'Ас қорыту 🍽️';
+  if (c.contains('Energy'))
+    return lang == AppLanguage.ru
+        ? 'Энергия и тело 💪'
+        : 'Энергия және дене 💪';
   return c;
 }
 
@@ -1155,18 +1320,24 @@ class _VomitingWarning extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.accent.withOpacity(0.08),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.accent.withOpacity(0.3), width: 1.5),
+        border:
+            Border.all(color: AppColors.accent.withOpacity(0.3), width: 1.5),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.accent, size: 28),
+              const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                  color: AppColors.accent, size: 28),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   Translations.get(lang, 'critical_warning_title'),
-                  style: const TextStyle(color: AppColors.accent, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                  style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5),
                 ),
               ),
             ],
@@ -1174,7 +1345,11 @@ class _VomitingWarning extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             Translations.get(lang, 'vomiting_multiple_warning'),
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600, height: 1.45),
+            style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.45),
           ),
         ],
       ),
@@ -1202,6 +1377,7 @@ class _HBPainter extends CustomPainter {
           ..lineTo(size.width, size.height * .5),
         p);
   }
+
   @override
   bool shouldRepaint(_) => false;
 }
@@ -1209,25 +1385,30 @@ class _HBPainter extends CustomPainter {
 class _BouncingWrapper extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
-  const _BouncingWrapper({super.key, required this.child, this.onTap});
+  const _BouncingWrapper({required this.child, this.onTap});
   @override
   State<_BouncingWrapper> createState() => _BouncingWrapperState();
 }
 
-class _BouncingWrapperState extends State<_BouncingWrapper> with SingleTickerProviderStateMixin {
+class _BouncingWrapperState extends State<_BouncingWrapper>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 100));
     _scale = Tween<double>(begin: 1.0, end: 0.96)
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => GestureDetector(
