@@ -22,6 +22,85 @@ String _translateMealType(String type, AppLanguage lang) {
   return key != null ? Translations.get(lang, key) : type;
 }
 
+const _monthShortKeys = [
+  'month_short_jan',
+  'month_short_feb',
+  'month_short_mar',
+  'month_short_apr',
+  'month_short_may',
+  'month_short_jun',
+  'month_short_jul',
+  'month_short_aug',
+  'month_short_sep',
+  'month_short_oct',
+  'month_short_nov',
+  'month_short_dec',
+];
+
+String _monthShortLabel(int m, AppLanguage lang) =>
+    Translations.get(lang, _monthShortKeys[m - 1]);
+
+/// Formats the label for a 7-day window, e.g. "8–14 Sep 2026" or
+/// "29 Aug – 4 Sep 2026" when the window spans a month/year boundary.
+String _weekRangeLabel(DateTime start, DateTime end, AppLanguage lang) {
+  if (start.year != end.year) {
+    return '${start.day} ${_monthShortLabel(start.month, lang)} ${start.year} – '
+        '${end.day} ${_monthShortLabel(end.month, lang)} ${end.year}';
+  } else if (start.month != end.month) {
+    return '${start.day} ${_monthShortLabel(start.month, lang)} – '
+        '${end.day} ${_monthShortLabel(end.month, lang)} ${end.year}';
+  }
+  return '${start.day}–${end.day} ${_monthShortLabel(end.month, lang)} ${end.year}';
+}
+
+/// Prev/next arrows for paging the doctor's view through past weeks,
+/// with the currently displayed date range shown in between.
+class _WeekNav extends StatelessWidget {
+  final String rangeLabel;
+  final VoidCallback onOlder;
+  final VoidCallback? onNewer;
+  const _WeekNav({
+    required this.rangeLabel,
+    required this.onOlder,
+    required this.onNewer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider, width: 0.5),
+      ),
+      child: Row(children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left, color: AppColors.textPrimary),
+          onPressed: onOlder,
+        ),
+        Expanded(
+          child: Text(
+            rangeLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary),
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.chevron_right,
+              color: onNewer == null
+                  ? AppColors.divider
+                  : AppColors.textPrimary),
+          onPressed: onNewer,
+        ),
+      ]),
+    );
+  }
+}
+
 class PatientDetailScreen extends StatefulWidget {
   final Map<String, dynamic> patient;
   const PatientDetailScreen({super.key, required this.patient});
@@ -146,6 +225,7 @@ class _SymptomsTab extends StatefulWidget {
 
 class _SymptomsTabState extends State<_SymptomsTab> {
   final Set<String> _expanded = {};
+  int _weekOffset = 0;
 
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
@@ -189,13 +269,6 @@ class _SymptomsTabState extends State<_SymptomsTab> {
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
-    if (widget.logs.isEmpty) {
-      return _EmptyState(
-        icon: Icons.monitor_heart_outlined,
-        text: Translations.get(lang, 'no_symptoms_7d'),
-      );
-    }
-
     final now = DateTime.now();
 
     final logsByDay = <String, Map<String, dynamic>>{};
@@ -204,18 +277,23 @@ class _SymptomsTabState extends State<_SymptomsTab> {
       logsByDay[_dateKey(d)] = l;
     }
 
-    // Show every day that actually has a log, most recent first, plus
-    // today even if nothing was logged yet — not just the last 7 days.
-    final days = logsByDay.keys.map((k) {
-      final parts = k.split('-').map(int.parse).toList();
-      return DateTime(parts[0], parts[1], parts[2]);
-    }).toList();
-    if (!logsByDay.containsKey(_dateKey(now))) days.add(now);
-    days.sort((a, b) => b.compareTo(a));
+    // A rolling 7-day window the doctor can page back through with the
+    // arrows below, instead of only ever seeing the last 7 days.
+    final days = List.generate(
+        7,
+        (i) => DateTime(
+            now.year, now.month, now.day - 7 * _weekOffset - i));
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
       children: [
+        _WeekNav(
+          rangeLabel: _weekRangeLabel(days.last, days.first, lang),
+          onOlder: () => setState(() => _weekOffset++),
+          onNewer:
+              _weekOffset > 0 ? () => setState(() => _weekOffset--) : null,
+        ),
+        const SizedBox(height: 16),
         _SectionHeader(title: Translations.get(lang, 'by_day')),
         const SizedBox(height: 12),
         ...days.map((day) {
@@ -407,7 +485,7 @@ class _SymptomsTabState extends State<_SymptomsTab> {
         const SizedBox(height: 28),
         _SectionHeader(title: Translations.get(lang, 'trends_7_days')),
         const SizedBox(height: 12),
-        _SymptomAvgChart(logs: widget.logs),
+        _SymptomAvgChart(logs: widget.logs, days: days.reversed.toList()),
       ],
     );
   }
@@ -516,14 +594,14 @@ class _SymptomChip extends StatelessWidget {
 
 class _SymptomAvgChart extends StatelessWidget {
   final List<Map<String, dynamic>> logs;
-  const _SymptomAvgChart({required this.logs});
+  /// The 7 days currently being viewed, oldest to newest.
+  final List<DateTime> days;
+  const _SymptomAvgChart({required this.logs, required this.days});
 
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final now = DateTime.now();
-    final days = List.generate(
-        7, (i) => DateTime(now.year, now.month, now.day - (6 - i)));
 
     final values = days.map((day) {
       final match = logs.where((l) {
@@ -602,7 +680,9 @@ class _SymptomAvgChart extends StatelessWidget {
             children: List.generate(7, (i) {
               final v = values[i];
               final hasData = v >= 0;
-              final isToday = i == 6;
+              final isToday = days[i].year == now.year &&
+                  days[i].month == now.month &&
+                  days[i].day == now.day;
               final barHeight = hasData ? (v / 5) * 80 : 4.0;
               final color = !hasData
                   ? AppColors.divider
@@ -702,6 +782,7 @@ class _FoodTabState extends State<_FoodTab> {
   final Set<String> _expanded = {};
   final Map<String, Map<String, dynamic>?> _aiResults = {};
   final Set<String> _aiLoading = {};
+  int _weekOffset = 0;
 
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
@@ -763,30 +844,20 @@ class _FoodTabState extends State<_FoodTab> {
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
-    if (widget.meals.isEmpty) {
-      return _EmptyState(
-          icon: Icons.restaurant_outlined,
-          text: Translations.get(lang, 'no_meals_7d'));
-    }
-
     final now = DateTime.now();
-    final days =
-        List.generate(7, (i) => DateTime(now.year, now.month, now.day - i));
+
+    // A rolling 7-day window the doctor can page back through with the
+    // arrows below, instead of only ever seeing the last 7 days.
+    final days = List.generate(
+        7,
+        (i) => DateTime(
+            now.year, now.month, now.day - 7 * _weekOffset - i));
 
     final mealsByDay = <String, List<Map<String, dynamic>>>{};
     for (final m in widget.meals) {
       final d = (m['date'] as Timestamp).toDate();
       mealsByDay.putIfAbsent(_dateKey(d), () => []).add(m);
     }
-
-    // Show every day that actually has meals logged, most recent first,
-    // plus today even if nothing was logged yet — not just the last 7 days.
-    final allDays = mealsByDay.keys.map((k) {
-      final parts = k.split('-').map(int.parse).toList();
-      return DateTime(parts[0], parts[1], parts[2]);
-    }).toList();
-    if (!mealsByDay.containsKey(_dateKey(now))) allDays.add(now);
-    allDays.sort((a, b) => b.compareTo(a));
 
     final caloriesPerDay = days.map((day) {
       final dayMeals = mealsByDay[_dateKey(day)] ?? [];
@@ -810,9 +881,16 @@ class _FoodTabState extends State<_FoodTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
       children: [
+        _WeekNav(
+          rangeLabel: _weekRangeLabel(days.last, days.first, lang),
+          onOlder: () => setState(() => _weekOffset++),
+          onNewer:
+              _weekOffset > 0 ? () => setState(() => _weekOffset--) : null,
+        ),
+        const SizedBox(height: 16),
         _SectionHeader(title: Translations.get(lang, 'by_day')),
         const SizedBox(height: 12),
-        ...allDays.map((day) {
+        ...days.map((day) {
           final key = _dateKey(day);
           final dayMeals = mealsByDay[key] ?? [];
           final isToday = key == _dateKey(now);
