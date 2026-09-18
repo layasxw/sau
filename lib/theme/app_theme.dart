@@ -55,7 +55,7 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: AppColors.background,
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface.withOpacity(0.8),
+        backgroundColor: AppColors.surface.withValues(alpha: 0.8),
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,

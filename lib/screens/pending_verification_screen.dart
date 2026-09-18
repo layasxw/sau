@@ -76,7 +76,7 @@ class _PendingVerificationScreenState extends State<PendingVerificationScreen> {
               Text(
                 Translations.get(lang, 'pending_awaiting_body'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: 15,
                     color: AppColors.textSecondary,
                     height: 1.5),

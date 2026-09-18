@@ -397,6 +397,46 @@ class FirestoreService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getPatientSymptomsAll(
+      String patientId) async {
+    try {
+      final logs = await _db
+          .collection('users')
+          .doc(patientId)
+          .collection('symptomLogs')
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getPatientMealsAll(
+      String patientId) async {
+    try {
+      final logs = await _db
+          .collection('users')
+          .doc(patientId)
+          .collection('meals')
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      return logs.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getPatientTodayReminders(
       String patientId) async {
     try {

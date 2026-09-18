@@ -255,7 +255,7 @@ class _DoctorsTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isPending
-                  ? Colors.orange.withOpacity(0.4)
+                  ? Colors.orange.withValues(alpha: 0.4)
                   : AppColors.divider,
               width: isPending ? 1.5 : 0.5,
             ),
@@ -266,7 +266,7 @@ class _DoctorsTab extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: isPending
-                    ? Colors.orange.withOpacity(0.1)
+                    ? Colors.orange.withValues(alpha: 0.1)
                     : AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -289,8 +289,8 @@ class _DoctorsTab extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: isPending
-                          ? Colors.orange.withOpacity(0.1)
-                          : Colors.green.withOpacity(0.1),
+                          ? Colors.orange.withValues(alpha: 0.1)
+                          : Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(

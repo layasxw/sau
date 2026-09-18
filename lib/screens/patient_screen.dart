@@ -1,10 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
 import '../services/language_provider.dart';
+import '../services/api_config.dart';
 import '../l10n/translations.dart';
+
+/// Meal type is stored as a fixed English value ('Breakfast', 'Lunch', ...)
+/// so it stays stable in Firestore regardless of UI language.
+String _translateMealType(String type, AppLanguage lang) {
+  const labelKeys = {
+    'Breakfast': 'meal_breakfast',
+    'Lunch': 'meal_lunch',
+    'Dinner': 'meal_dinner',
+    'Snack': 'meal_snack',
+  };
+  final key = labelKeys[type];
+  return key != null ? Translations.get(lang, key) : type;
+}
 
 class PatientDetailScreen extends StatefulWidget {
   final Map<String, dynamic> patient;
@@ -40,8 +56,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     try {
       final patientId = widget.patient['id'] as String;
       final results = await Future.wait([
-        FirestoreService.getPatientSymptomsWeek(patientId),
-        FirestoreService.getPatientMealsWeek(patientId),
+        FirestoreService.getPatientSymptomsAll(patientId),
+        FirestoreService.getPatientMealsAll(patientId),
         FirestoreService.getPatientTodayReminders(patientId),
       ]);
       if (!mounted) return;
@@ -59,7 +75,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
-    final name = widget.patient['fullName'] ?? Translations.get(lang, 'patient_fallback_cap');
+    final name = widget.patient['fullName'] ??
+        Translations.get(lang, 'patient_fallback_cap');
     final age = widget.patient['age'];
     final gender = widget.patient['gender'];
 
@@ -69,16 +86,20 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 18, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_ios,
+              size: 18, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name,
               style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
           if (age != null || gender != null)
             Text('$age ${Translations.get(lang, 'years_old_suffix')} • $gender',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary)),
         ]),
         bottom: TabBar(
           controller: _tabController,
@@ -86,8 +107,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           unselectedLabelColor: AppColors.textSecondary,
           indicatorColor: AppColors.primary,
           indicatorWeight: 2,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+          labelStyle:
+              const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          unselectedLabelStyle:
+              const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
           tabs: [
             Tab(text: Translations.get(lang, 'nav_symptoms')),
             Tab(text: Translations.get(lang, 'nav_nutrition')),
@@ -127,15 +150,32 @@ class _SymptomsTabState extends State<_SymptomsTab> {
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
 
   String _dayLabel(DateTime d, AppLanguage lang) {
-    const keys = ['day_monday', 'day_tuesday', 'day_wednesday', 'day_thursday', 'day_friday', 'day_saturday', 'day_sunday'];
+    const keys = [
+      'day_monday',
+      'day_tuesday',
+      'day_wednesday',
+      'day_thursday',
+      'day_friday',
+      'day_saturday',
+      'day_sunday'
+    ];
     return Translations.get(lang, keys[d.weekday - 1]);
   }
 
   String _monthShort(int m, AppLanguage lang) {
     const keys = [
-      'month_short_jan','month_short_feb','month_short_mar','month_short_apr',
-      'month_short_may','month_short_jun','month_short_jul','month_short_aug',
-      'month_short_sep','month_short_oct','month_short_nov','month_short_dec',
+      'month_short_jan',
+      'month_short_feb',
+      'month_short_mar',
+      'month_short_apr',
+      'month_short_may',
+      'month_short_jun',
+      'month_short_jul',
+      'month_short_aug',
+      'month_short_sep',
+      'month_short_oct',
+      'month_short_nov',
+      'month_short_dec',
     ];
     return Translations.get(lang, keys[m - 1]);
   }
@@ -157,13 +197,21 @@ class _SymptomsTabState extends State<_SymptomsTab> {
     }
 
     final now = DateTime.now();
-    final days = List.generate(7, (i) => DateTime(now.year, now.month, now.day - i));
 
     final logsByDay = <String, Map<String, dynamic>>{};
     for (final l in widget.logs) {
       final d = (l['date'] as Timestamp).toDate();
       logsByDay[_dateKey(d)] = l;
     }
+
+    // Show every day that actually has a log, most recent first, plus
+    // today even if nothing was logged yet — not just the last 7 days.
+    final days = logsByDay.keys.map((k) {
+      final parts = k.split('-').map(int.parse).toList();
+      return DateTime(parts[0], parts[1], parts[2]);
+    }).toList();
+    if (!logsByDay.containsKey(_dateKey(now))) days.add(now);
+    days.sort((a, b) => b.compareTo(a));
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
@@ -180,7 +228,8 @@ class _SymptomsTabState extends State<_SymptomsTab> {
           final symptoms = hasData
               ? Map<String, dynamic>.from(log['symptoms'] ?? {})
               : <String, dynamic>{};
-          final ai = hasData ? log['aiAnalysis'] as Map<String, dynamic>? : null;
+          final ai =
+              hasData ? log['aiAnalysis'] as Map<String, dynamic>? : null;
           final risk = ai?['risk'] as String?;
           final riskColor = risk == 'high'
               ? Colors.red
@@ -203,114 +252,158 @@ class _SymptomsTabState extends State<_SymptomsTab> {
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isToday ? AppColors.primary.withOpacity(0.4) : AppColors.divider,
+                    color: isToday
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : AppColors.divider,
                     width: isToday ? 1.5 : 0.5,
                   ),
                 ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: isToday ? AppColors.primaryLight : AppColors.background,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text(
-                            '${day.day}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: isToday ? AppColors.primary : AppColors.textPrimary,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isToday
+                                  ? AppColors.primaryLight
+                                  : AppColors.background,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ),
-                          Text(
-                            _monthShort(day.month, lang),
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: isToday ? AppColors.primary : AppColors.textSecondary,
-                            ),
-                          ),
-                        ]),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(
-                            isToday ? Translations.get(lang, 'today') : _dayLabel(day, lang),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: isToday ? AppColors.primary : AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          if (!hasData)
-                            Text(Translations.get(lang, 'not_logged'),
-                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
-                          else if (symptoms.isEmpty)
-                            Text(Translations.get(lang, 'no_symptoms_recorded'),
-                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
-                          else
-                            Wrap(
-                              spacing: 4,
-                              children: symptoms.entries.take(3).map((e) {
-                                final v = (e.value as num).toInt();
-                                final c = v <= 2
-                                    ? Colors.green
-                                    : v <= 3
-                                        ? Colors.orange
-                                        : Colors.red;
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: c.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
+                            child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${day.day}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textPrimary,
+                                    ),
                                   ),
-                                  child: Text('${e.key} $v',
-                                      style: TextStyle(
-                                          fontSize: 10, fontWeight: FontWeight.w600, color: c)),
-                                );
-                              }).toList(),
+                                  Text(
+                                    _monthShort(day.month, lang),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${day.year}',
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w500,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ]),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isToday
+                                        ? '${Translations.get(lang, 'today')} · ${_dayLabel(day, lang)}, ${day.day} ${_monthShort(day.month, lang)} ${day.year}'
+                                        : '${_dayLabel(day, lang)}, ${day.day} ${_monthShort(day.month, lang)} ${day.year}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  if (!hasData)
+                                    Text(Translations.get(lang, 'not_logged'),
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary))
+                                  else if (symptoms.isEmpty)
+                                    Text(
+                                        Translations.get(
+                                            lang, 'no_symptoms_recorded'),
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary))
+                                  else
+                                    Wrap(
+                                      spacing: 4,
+                                      children:
+                                          symptoms.entries.take(3).map((e) {
+                                        final v = (e.value as num).toInt();
+                                        final c = v <= 2
+                                            ? Colors.green
+                                            : v <= 3
+                                                ? Colors.orange
+                                                : Colors.red;
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: c.withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text('${e.key} $v',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: c)),
+                                        );
+                                      }).toList(),
+                                    ),
+                                ]),
+                          ),
+                          if (risk != null)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: riskColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(risk.toUpperCase(),
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: riskColor)),
                             ),
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
                         ]),
                       ),
-                      if (risk != null)
-                        Container(
-                          margin: const EdgeInsets.only(right: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: riskColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(risk.toUpperCase(),
-                              style: TextStyle(
-                                  fontSize: 10, fontWeight: FontWeight.w700, color: riskColor)),
+                      if (isExpanded && hasData) ...[
+                        const Divider(height: 1, color: AppColors.divider),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _SymptomCardExpanded(log: log),
                         ),
-                      Icon(
-                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: AppColors.textSecondary,
-                      ),
+                      ],
                     ]),
-                  ),
-                  if (isExpanded && hasData) ...[
-                    Divider(height: 1, color: AppColors.divider),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: _SymptomCardExpanded(log: log),
-                    ),
-                  ],
-                ]),
               ),
             ),
           );
         }),
-
         const SizedBox(height: 28),
         _SectionHeader(title: Translations.get(lang, 'trends_7_days')),
         const SizedBox(height: 12),
@@ -350,12 +443,14 @@ class _SymptomCardExpanded extends StatelessWidget {
           const Icon(Icons.mood, size: 14, color: AppColors.textSecondary),
           const SizedBox(width: 6),
           Text('${Translations.get(lang, 'mood_prefix')}$mood',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
         ]),
       if (notes.isNotEmpty) ...[
         const SizedBox(height: 6),
         Text(notes,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+            style: const TextStyle(
+                fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
       ],
       if (ai?['summary'] != null) ...[
         const SizedBox(height: 12),
@@ -365,17 +460,22 @@ class _SymptomCardExpanded extends StatelessWidget {
             color: AppColors.primaryLight,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              const Icon(Icons.auto_awesome, size: 13, color: AppColors.primary),
+              const Icon(Icons.auto_awesome,
+                  size: 13, color: AppColors.primary),
               const SizedBox(width: 6),
               Text(Translations.get(lang, 'ai_analysis_short'),
                   style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary)),
             ]),
             const SizedBox(height: 6),
             Text(ai!['summary'] ?? '',
-                style: const TextStyle(fontSize: 12, color: AppColors.primary, height: 1.4)),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.primary, height: 1.4)),
           ]),
         ),
       ],
@@ -401,12 +501,13 @@ class _SymptomChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.08),
+        color: _color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _color.withOpacity(0.3)),
+        border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Text('$name · $value/5',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _color)),
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w600, color: _color)),
     );
   }
 }
@@ -421,7 +522,8 @@ class _SymptomAvgChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
     final now = DateTime.now();
-    final days = List.generate(7, (i) => DateTime(now.year, now.month, now.day - (6 - i)));
+    final days = List.generate(
+        7, (i) => DateTime(now.year, now.month, now.day - (6 - i)));
 
     final values = days.map((day) {
       final match = logs.where((l) {
@@ -456,9 +558,12 @@ class _SymptomAvgChart extends StatelessWidget {
                 : AppColors.textSecondary;
 
     final weekDays = [
-      Translations.get(lang, 'weekday_short_mo'), Translations.get(lang, 'weekday_short_tu'),
-      Translations.get(lang, 'weekday_short_we'), Translations.get(lang, 'weekday_short_th'),
-      Translations.get(lang, 'weekday_short_fr'), Translations.get(lang, 'weekday_short_sa'),
+      Translations.get(lang, 'weekday_short_mo'),
+      Translations.get(lang, 'weekday_short_tu'),
+      Translations.get(lang, 'weekday_short_we'),
+      Translations.get(lang, 'weekday_short_th'),
+      Translations.get(lang, 'weekday_short_fr'),
+      Translations.get(lang, 'weekday_short_sa'),
       Translations.get(lang, 'weekday_short_su'),
     ];
 
@@ -474,16 +579,21 @@ class _SymptomAvgChart extends StatelessWidget {
           Expanded(
             child: Text(Translations.get(lang, 'avg_severity'),
                 style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
           ),
           if (trend != null)
             Text(trend,
                 style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: trendColor)),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: trendColor)),
         ]),
         const SizedBox(height: 4),
         Text(Translations.get(lang, 'avg_severity_subtitle'),
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            style:
+                const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         const SizedBox(height: 16),
         SizedBox(
           height: 110,
@@ -523,13 +633,13 @@ class _SymptomAvgChart extends StatelessWidget {
                         height: barHeight,
                         decoration: BoxDecoration(
                           color: hasData
-                              ? color.withOpacity(isToday ? 1.0 : 0.65)
+                              ? color.withValues(alpha: isToday ? 1.0 : 0.65)
                               : AppColors.divider,
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: isToday && hasData
                               ? [
                                   BoxShadow(
-                                      color: color.withOpacity(0.35),
+                                      color: color.withValues(alpha: 0.35),
                                       blurRadius: 8,
                                       offset: const Offset(0, 3))
                                 ]
@@ -544,7 +654,8 @@ class _SymptomAvgChart extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-                      color: isToday ? AppColors.primary : AppColors.textSecondary,
+                      color:
+                          isToday ? AppColors.primary : AppColors.textSecondary,
                     ),
                   ),
                 ]),
@@ -571,104 +682,261 @@ class _SymptomAvgChart extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+      Text(label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
     ]);
   }
 }
 
 // ─── FOOD TAB ─────────────────────────────────────────────────────────────────
 
-class _FoodTab extends StatelessWidget {
+class _FoodTab extends StatefulWidget {
   final List<Map<String, dynamic>> meals;
   const _FoodTab({required this.meals});
 
   @override
+  State<_FoodTab> createState() => _FoodTabState();
+}
+
+class _FoodTabState extends State<_FoodTab> {
+  final Set<String> _expanded = {};
+  final Map<String, Map<String, dynamic>?> _aiResults = {};
+  final Set<String> _aiLoading = {};
+
+  String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded.add(_dateKey(DateTime.now()));
+  }
+
+  // Nutrition analysis is fetched lazily per day, only when the doctor
+  // expands that day — this is doctor-only (see [[project-overview]] /
+  // the "hide AI analysis from patients" decision): the patient never sees
+  // this, it exists purely to help the doctor spot a bad day at a glance.
+  Future<void> _fetchAnalysis(
+      String key, List<Map<String, dynamic>> dayMeals, AppLanguage lang) async {
+    if (_aiResults.containsKey(key) || _aiLoading.contains(key)) return;
+    setState(() => _aiLoading.add(key));
+    try {
+      final totalCalories = dayMeals.fold(
+          0.0, (s, m) => s + ((m['calories'] as num?)?.toDouble() ?? 0));
+      final totalProtein = dayMeals.fold(
+          0.0, (s, m) => s + ((m['protein'] as num?)?.toDouble() ?? 0));
+      final totalCarbs = dayMeals.fold(
+          0.0, (s, m) => s + ((m['carbs'] as num?)?.toDouble() ?? 0));
+      final totalFat = dayMeals.fold(
+          0.0, (s, m) => s + ((m['fat'] as num?)?.toDouble() ?? 0));
+      final langCode = lang == AppLanguage.ru
+          ? 'ru'
+          : lang == AppLanguage.kk
+              ? 'kk'
+              : 'en';
+      final response = await http.post(
+        Uri.parse(ApiConfig.analyzeMealUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'meals': dayMeals
+              .map((m) => {
+                    'name': m['name'],
+                    'type': m['type'],
+                    'calories': m['calories']
+                  })
+              .toList(),
+          'total_calories': totalCalories,
+          'total_protein': totalProtein,
+          'total_carbs': totalCarbs,
+          'total_fat': totalFat,
+          'lang': langCode,
+        }),
+      );
+      setState(() => _aiResults[key] =
+          response.statusCode == 200 ? jsonDecode(response.body) : null);
+    } catch (e) {
+      setState(() => _aiResults[key] = null);
+    } finally {
+      setState(() => _aiLoading.remove(key));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context).currentLanguage;
-    if (meals.isEmpty) {
+    if (widget.meals.isEmpty) {
       return _EmptyState(
           icon: Icons.restaurant_outlined,
           text: Translations.get(lang, 'no_meals_7d'));
     }
 
     final now = DateTime.now();
-    final todayMeals = meals.where((m) {
-      final d = (m['date'] as Timestamp).toDate();
-      return d.year == now.year && d.month == now.month && d.day == now.day;
-    }).toList();
+    final days =
+        List.generate(7, (i) => DateTime(now.year, now.month, now.day - i));
 
-    final days = List.generate(7, (i) => DateTime(now.year, now.month, now.day - (6 - i)));
+    final mealsByDay = <String, List<Map<String, dynamic>>>{};
+    for (final m in widget.meals) {
+      final d = (m['date'] as Timestamp).toDate();
+      mealsByDay.putIfAbsent(_dateKey(d), () => []).add(m);
+    }
+
+    // Show every day that actually has meals logged, most recent first,
+    // plus today even if nothing was logged yet — not just the last 7 days.
+    final allDays = mealsByDay.keys.map((k) {
+      final parts = k.split('-').map(int.parse).toList();
+      return DateTime(parts[0], parts[1], parts[2]);
+    }).toList();
+    if (!mealsByDay.containsKey(_dateKey(now))) allDays.add(now);
+    allDays.sort((a, b) => b.compareTo(a));
+
     final caloriesPerDay = days.map((day) {
-      final dayMeals = meals.where((m) {
-        final d = (m['date'] as Timestamp).toDate();
-        return d.year == day.year && d.month == day.month && d.day == day.day;
-      }).toList();
+      final dayMeals = mealsByDay[_dateKey(day)] ?? [];
       if (dayMeals.isEmpty) return -1.0;
       return dayMeals.fold(
           0.0, (sum, m) => sum + ((m['calories'] as num?)?.toDouble() ?? 0));
     }).toList();
 
-    final todayCalories =
-        todayMeals.fold(0.0, (s, m) => s + ((m['calories'] as num?)?.toDouble() ?? 0));
-    final todayProtein =
-        todayMeals.fold(0.0, (s, m) => s + ((m['protein'] as num?)?.toDouble() ?? 0));
-    final todayCarbs =
-        todayMeals.fold(0.0, (s, m) => s + ((m['carbs'] as num?)?.toDouble() ?? 0));
-    final todayFat =
-        todayMeals.fold(0.0, (s, m) => s + ((m['fat'] as num?)?.toDouble() ?? 0));
-
     final weekDays = [
-      Translations.get(lang, 'weekday_short_mo'), Translations.get(lang, 'weekday_short_tu'),
-      Translations.get(lang, 'weekday_short_we'), Translations.get(lang, 'weekday_short_th'),
-      Translations.get(lang, 'weekday_short_fr'), Translations.get(lang, 'weekday_short_sa'),
+      Translations.get(lang, 'weekday_short_mo'),
+      Translations.get(lang, 'weekday_short_tu'),
+      Translations.get(lang, 'weekday_short_we'),
+      Translations.get(lang, 'weekday_short_th'),
+      Translations.get(lang, 'weekday_short_fr'),
+      Translations.get(lang, 'weekday_short_sa'),
       Translations.get(lang, 'weekday_short_su'),
     ];
     final maxCal =
         caloriesPerDay.where((v) => v >= 0).fold(0.0, (a, b) => a > b ? a : b);
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
       children: [
-        _SectionHeader(title: Translations.get(lang, 'today')),
+        _SectionHeader(title: Translations.get(lang, 'by_day')),
         const SizedBox(height: 12),
-        if (todayMeals.isEmpty)
-          _InfoCard(
-              icon: Icons.warning_amber_rounded,
-              iconColor: Colors.orange,
-              text: Translations.get(lang, 'patient_no_meals_today'))
-        else ...[
-          Row(children: [
-            _NutrientBox(
-                label: Translations.get(lang, 'calories_label'),
-                value: '${todayCalories.toInt()}',
-                unit: Translations.get(lang, 'calories'),
-                color: const Color(0xFFFF9800)),
-            const SizedBox(width: 8),
-            _NutrientBox(
-                label: Translations.get(lang, 'protein'),
-                value: '${todayProtein.toInt()}',
-                unit: Translations.get(lang, 'grams'),
-                color: const Color(0xFFE53935)),
-            const SizedBox(width: 8),
-            _NutrientBox(
-                label: Translations.get(lang, 'carbs'),
-                value: '${todayCarbs.toInt()}',
-                unit: Translations.get(lang, 'grams'),
-                color: Colors.green),
-            const SizedBox(width: 8),
-            _NutrientBox(
-                label: Translations.get(lang, 'fat'),
-                value: '${todayFat.toInt()}',
-                unit: Translations.get(lang, 'grams'),
-                color: AppColors.primary),
-          ]),
-          const SizedBox(height: 12),
-          ...todayMeals.map((m) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _MealRow(meal: m, lang: lang),
-              )),
-        ],
-        const SizedBox(height: 24),
+        ...allDays.map((day) {
+          final key = _dateKey(day);
+          final dayMeals = mealsByDay[key] ?? [];
+          final isToday = key == _dateKey(now);
+          final isExpanded = _expanded.contains(key);
+          final hasData = dayMeals.isNotEmpty;
+          final totalCalories = dayMeals.fold(
+              0.0, (s, m) => s + ((m['calories'] as num?)?.toDouble() ?? 0));
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: GestureDetector(
+              onTap: () => setState(() {
+                if (isExpanded) {
+                  _expanded.remove(key);
+                } else {
+                  _expanded.add(key);
+                  if (hasData) _fetchAnalysis(key, dayMeals, lang);
+                }
+              }),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isToday
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : AppColors.divider,
+                    width: isToday ? 1.5 : 0.5,
+                  ),
+                ),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isToday
+                                  ? AppColors.primaryLight
+                                  : AppColors.background,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('${day.day}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: isToday
+                                            ? AppColors.primary
+                                            : AppColors.textPrimary,
+                                      )),
+                                  Text(
+                                    '${day.month.toString().padLeft(2, '0')}.${day.year}',
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w500,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ]),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isToday
+                                        ? '${Translations.get(lang, 'today')} · ${weekDays[day.weekday - 1]}, ${day.day}.${day.month.toString().padLeft(2, '0')}.${day.year}'
+                                        : '${weekDays[day.weekday - 1]}, ${day.day}.${day.month.toString().padLeft(2, '0')}.${day.year}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                      hasData
+                                          ? '${totalCalories.toInt()} ${Translations.get(lang, 'calories')} · ${dayMeals.length}'
+                                          : Translations.get(
+                                              lang, 'not_logged'),
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary)),
+                                ]),
+                          ),
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                        ]),
+                      ),
+                      if (isExpanded && hasData) ...[
+                        const Divider(height: 1, color: AppColors.divider),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _MealDayExpanded(
+                            meals: dayMeals,
+                            lang: lang,
+                            aiResult: _aiResults[key],
+                            aiLoading: _aiLoading.contains(key),
+                          ),
+                        ),
+                      ],
+                    ]),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 28),
         _SectionHeader(title: Translations.get(lang, 'calories_7d_title')),
         const SizedBox(height: 12),
         Container(
@@ -683,10 +951,13 @@ class _FoodTab extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(7, (i) {
-                final v = caloriesPerDay[i];
+                // caloriesPerDay/days are ordered today-first (to match the
+                // per-day card list above); reverse the index here so the
+                // chart still reads chronologically left-to-right.
+                final v = caloriesPerDay[6 - i];
                 final hasData = v >= 0;
                 final barH = hasData && maxCal > 0 ? (v / maxCal) * 72 : 4.0;
-                final dayLabel = weekDays[days[i].weekday - 1];
+                final dayLabel = weekDays[days[6 - i].weekday - 1];
                 return Expanded(
                   child: Column(children: [
                     Text(hasData ? '${v.toInt()}' : '—',
@@ -705,7 +976,7 @@ class _FoodTab extends StatelessWidget {
                           height: barH,
                           decoration: BoxDecoration(
                             color: hasData
-                                ? const Color(0xFFFF9800).withOpacity(0.8)
+                                ? const Color(0xFFFF9800).withValues(alpha: 0.8)
                                 : AppColors.divider,
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -742,19 +1013,126 @@ class _NutrientBox extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(children: [
           Text(value,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
-          Text(unit, style: TextStyle(fontSize: 10, color: color.withOpacity(0.7))),
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+          Text(unit,
+              style:
+                  TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
           const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              style: const TextStyle(
+                  fontSize: 10, color: AppColors.textSecondary)),
         ]),
       ),
     );
+  }
+}
+
+class _MealDayExpanded extends StatelessWidget {
+  final List<Map<String, dynamic>> meals;
+  final AppLanguage lang;
+  final Map<String, dynamic>? aiResult;
+  final bool aiLoading;
+  const _MealDayExpanded({
+    required this.meals,
+    required this.lang,
+    required this.aiResult,
+    required this.aiLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCalories = meals.fold(
+        0.0, (s, m) => s + ((m['calories'] as num?)?.toDouble() ?? 0));
+    final totalProtein = meals.fold(
+        0.0, (s, m) => s + ((m['protein'] as num?)?.toDouble() ?? 0));
+    final totalCarbs = meals.fold(
+        0.0, (s, m) => s + ((m['carbs'] as num?)?.toDouble() ?? 0));
+    final totalFat = meals.fold(
+        0.0, (s, m) => s + ((m['fat'] as num?)?.toDouble() ?? 0));
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        _NutrientBox(
+            label: Translations.get(lang, 'calories_label'),
+            value: '${totalCalories.toInt()}',
+            unit: Translations.get(lang, 'calories'),
+            color: const Color(0xFFFF9800)),
+        const SizedBox(width: 8),
+        _NutrientBox(
+            label: Translations.get(lang, 'protein'),
+            value: '${totalProtein.toInt()}',
+            unit: Translations.get(lang, 'grams'),
+            color: const Color(0xFFE53935)),
+        const SizedBox(width: 8),
+        _NutrientBox(
+            label: Translations.get(lang, 'carbs'),
+            value: '${totalCarbs.toInt()}',
+            unit: Translations.get(lang, 'grams'),
+            color: Colors.green),
+        const SizedBox(width: 8),
+        _NutrientBox(
+            label: Translations.get(lang, 'fat'),
+            value: '${totalFat.toInt()}',
+            unit: Translations.get(lang, 'grams'),
+            color: AppColors.primary),
+      ]),
+      const SizedBox(height: 12),
+      ...meals.map((m) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _MealRow(meal: m, lang: lang),
+          )),
+      if (aiLoading) ...[
+        const SizedBox(height: 4),
+        Row(children: [
+          const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 8),
+          Text(Translations.get(lang, 'analyzing_nutrition'),
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary)),
+        ]),
+      ] else if (aiResult?['summary'] != null) ...[
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.auto_awesome,
+                  size: 13, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(Translations.get(lang, 'ai_nutrition_insights'),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary)),
+            ]),
+            const SizedBox(height: 6),
+            Text(aiResult!['summary'] ?? '',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.primary, height: 1.4)),
+            if ((aiResult!['advice'] ?? '').toString().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(aiResult!['advice'],
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.primary, height: 1.4)),
+            ],
+          ]),
+        ),
+      ],
+    ]);
   }
 }
 
@@ -774,14 +1152,16 @@ class _MealRow extends StatelessWidget {
       ),
       child: Row(children: [
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(meal['name'] ?? '',
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary)),
-            Text(meal['type'] ?? '',
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            Text(_translateMealType(meal['type'] ?? '', lang),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textSecondary)),
           ]),
         ),
         Text('${meal['calories'] ?? 0} ${Translations.get(lang, 'calories')}',
@@ -828,7 +1208,8 @@ class _RemindersTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.divider, width: 0.5),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text(Translations.get(lang, 'completed_today'),
                   style: const TextStyle(
@@ -883,19 +1264,23 @@ class _ReminderRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(reminder['title'] ?? '',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: done ? AppColors.textSecondary : AppColors.textPrimary,
+                    color:
+                        done ? AppColors.textSecondary : AppColors.textPrimary,
                     decoration: done ? TextDecoration.lineThrough : null)),
             Text(reminder['type'] ?? '',
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textSecondary)),
           ]),
         ),
         Text(reminder['time'] ?? '',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       ]),
     );
   }
@@ -906,55 +1291,32 @@ class _ReminderRow extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
-  const _SectionHeader({required this.title, this.subtitle});
+  const _SectionHeader({required this.title}) : subtitle = null;
 
   @override
   Widget build(BuildContext context) {
     return Row(children: [
       Text(title,
           style: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary)),
       if (subtitle != null) ...[
         const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(subtitle!,
               style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange)),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange)),
         ),
       ],
     ]);
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String text;
-  const _InfoCard({required this.icon, required this.iconColor, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: iconColor.withOpacity(0.2)),
-      ),
-      child: Row(children: [
-        Icon(icon, size: 18, color: iconColor),
-        const SizedBox(width: 10),
-        Expanded(
-            child: Text(text,
-                style: TextStyle(
-                    fontSize: 13, color: iconColor, fontWeight: FontWeight.w500))),
-      ]),
-    );
   }
 }
 
@@ -971,7 +1333,8 @@ class _EmptyState extends StatelessWidget {
         const SizedBox(height: 16),
         Text(text,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+            style:
+                const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
       ]),
     );
   }
@@ -1003,7 +1366,8 @@ class _MessageTabState extends State<_MessageTab> {
     _controller.clear();
     if (mounted) setState(() => _sending = false);
     if (mounted) {
-      final lang = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
+      final lang =
+          Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(Translations.get(lang, 'message_sent'))),
       );
@@ -1020,7 +1384,8 @@ class _MessageTabState extends State<_MessageTab> {
         children: [
           Text(
             Translations.get(lang, 'send_message_to_patient'),
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            style:
+                const TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -1032,11 +1397,13 @@ class _MessageTabState extends State<_MessageTab> {
               fillColor: AppColors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
+                borderSide:
+                    const BorderSide(color: AppColors.divider, width: 0.5),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.divider, width: 0.5),
+                borderSide:
+                    const BorderSide(color: AppColors.divider, width: 0.5),
               ),
             ),
           ),

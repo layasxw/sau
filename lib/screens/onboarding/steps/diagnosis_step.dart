@@ -170,7 +170,7 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
           FieldLabel(Translations.get(lang, 'ob_primary_diag')),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _selectedDiagnosis,
+            initialValue: _selectedDiagnosis,
             hint: Text(
               Translations.get(lang, 'ob_diag_select'),
               style: const TextStyle(color: AppColors.textSecondary),
@@ -331,9 +331,9 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.06),
+                color: AppColors.primary.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -372,9 +372,9 @@ class _DiagnosisStepState extends State<DiagnosisStep> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.upload_file_outlined,
+                    const Icon(Icons.upload_file_outlined,
                         size: 20, color: AppColors.textSecondary),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
                       Translations.get(lang, 'ob_choose_file'),
                       style: const TextStyle(

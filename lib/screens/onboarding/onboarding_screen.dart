@@ -44,7 +44,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Last step done — go to Dashboard
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomeScreen()),
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     }
   }
@@ -232,7 +232,7 @@ class _LanguageToggle extends StatelessWidget {
           color: active ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           boxShadow: active ? [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))
           ] : null,
         ),
         child: Text(

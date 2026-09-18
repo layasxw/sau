@@ -8,7 +8,6 @@ import 'food_diary_screen.dart';
 import 'symptoms_screen.dart';
 import 'profile_screen.dart';
 import '../theme/app_theme.dart';
-import './onboarding/onboarding_data.dart';
 import 'package:provider/provider.dart';
 import '../services/language_provider.dart';
 import '../l10n/translations.dart';
@@ -51,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.background,
       extendBody: true,
       appBar: AppBar(
-        backgroundColor: AppColors.surface.withOpacity(0.8),
+        backgroundColor: AppColors.surface.withValues(alpha: 0.8),
         elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 20,
@@ -70,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
+                  color: AppColors.primary.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -114,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return const RemindersScreen(key: ValueKey(1));
       case 2:
-        return FoodDiaryScreen(key: const ValueKey(2));
+        return const FoodDiaryScreen(key: ValueKey(2));
       case 3:
         return const SymptomsScreen(key: ValueKey(3));
       case 4:
@@ -137,7 +136,7 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.95),
+        color: AppColors.surface.withValues(alpha: 0.95),
         border: const Border(
           top: BorderSide(color: AppColors.divider, width: 0.5),
         ),

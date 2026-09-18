@@ -172,7 +172,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.3),
+                                      color: AppColors.primary.withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4))
                                 ]),
@@ -220,7 +220,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -247,7 +247,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -377,7 +377,7 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
                       height: 60,
                       decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.accent.withOpacity(_opacity.value)),
+                          color: AppColors.accent.withValues(alpha: _opacity.value)),
                     ),
                   ),
                 ),
@@ -389,7 +389,7 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
                   gradient: widget.isListening
                       ? LinearGradient(colors: [
                           AppColors.accent,
-                          AppColors.accent.withOpacity(0.75)
+                          AppColors.accent.withValues(alpha: 0.75)
                         ], begin: Alignment.topLeft, end: Alignment.bottomRight)
                       : AppGradients.primary,
                   boxShadow: [
@@ -397,7 +397,7 @@ class _MicFabState extends State<_MicFab> with SingleTickerProviderStateMixin {
                         color: (widget.isListening
                                 ? AppColors.accent
                                 : AppColors.primary)
-                            .withOpacity(0.38),
+                            .withValues(alpha: 0.38),
                         blurRadius: 18,
                         offset: const Offset(0, 6)),
                   ],
@@ -436,7 +436,7 @@ class _LogCard extends StatelessWidget {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -453,7 +453,7 @@ class _LogCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: _c.withOpacity(0.1),
+                    color: _c.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20)),
                 child: Text(
                     '${Translations.get(lang, 'symptom_severity')} ${log.avg}/5',
@@ -475,7 +475,7 @@ class _LogCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                        color: c.withOpacity(0.08),
+                        color: c.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20)),
                     child: Text('$name · ${e.value}/5',
                         style: TextStyle(
@@ -847,7 +847,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                           horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: _isListening
-                            ? AppColors.accent.withOpacity(0.08)
+                            ? AppColors.accent.withValues(alpha: 0.08)
                             : AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
@@ -933,7 +933,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                             color: AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                                color: AppColors.primary.withOpacity(0.2)),
+                                color: AppColors.primary.withValues(alpha: 0.2)),
                           ),
                           child: _aiLoading
                               ? const Center(
@@ -1027,7 +1027,7 @@ class _CheckInSheetState extends State<_CheckInSheet> {
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                             color: AppColors.primary
-                                                .withOpacity(0.3)),
+                                                .withValues(alpha: 0.3)),
                                       ),
                                       child: Text(
                                           isExpanded
@@ -1280,12 +1280,14 @@ String _translateSymptom(String s, AppLanguage lang) {
 
 String _translateCategory(String c, AppLanguage lang) {
   if (lang == AppLanguage.en) return c;
-  if (c.contains('Digestive'))
+  if (c.contains('Digestive')) {
     return lang == AppLanguage.ru ? 'Пищеварение 🍽️' : 'Ас қорыту 🍽️';
-  if (c.contains('Energy'))
+  }
+  if (c.contains('Energy')) {
     return lang == AppLanguage.ru
         ? 'Энергия и тело 💪'
         : 'Энергия және дене 💪';
+  }
   return c;
 }
 
@@ -1318,10 +1320,10 @@ class _VomitingWarning extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.accent.withOpacity(0.08),
+        color: AppColors.accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(24),
         border:
-            Border.all(color: AppColors.accent.withOpacity(0.3), width: 1.5),
+            Border.all(color: AppColors.accent.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Column(
         children: [

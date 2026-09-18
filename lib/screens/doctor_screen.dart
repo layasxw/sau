@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rehab_assist/screens/patient_screen.dart';
@@ -19,9 +18,9 @@ class _DoctorScreenState extends State<DoctorScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages =  [
-    _PatientsTab(), 
-    _AlertsTab(),
-    _ProfileTab(),
+    const _PatientsTab(), 
+    const _AlertsTab(),
+    const _ProfileTab(),
   ];
 
   @override
@@ -254,7 +253,7 @@ class _PatientCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: riskColor.withOpacity(0.1),
+                color: riskColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(risk.toUpperCase(),
@@ -432,13 +431,13 @@ class _FlagCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Row(children: [
         Container(
           width: 44, height: 44,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, size: 22, color: color),
@@ -456,7 +455,7 @@ class _FlagCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(label,
@@ -478,7 +477,7 @@ class _ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<_ProfileTab> {
   String? _inviteCode;
-  bool _loading = false;
+  final bool _loading = false;
   bool _codeCopied = false;
 
   @override
@@ -555,7 +554,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: _codeCopied ? Colors.green.withOpacity(0.1) : AppColors.primaryLight,
+                            color: _codeCopied ? Colors.green.withValues(alpha: 0.1) : AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(children: [

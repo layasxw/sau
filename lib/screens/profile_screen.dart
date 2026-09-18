@@ -308,7 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 10))
                   ],
@@ -318,10 +318,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 88,
                     height: 88,
                     decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withOpacity(0.4), width: 1.5)),
+                            color: Colors.white.withValues(alpha: 0.4), width: 1.5)),
                     child: Icon(
                       isDoctor
                           ? CupertinoIcons.person_crop_circle_badge_checkmark
@@ -341,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(email,
                       style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontWeight: FontWeight.w500)),
                   const SizedBox(height: 16),
                   Container(
@@ -352,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 10,
                               offset: const Offset(0, 4))
                         ]),
@@ -468,10 +468,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.08),
+                    color: AppColors.accent.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
                     border:
-                        Border.all(color: AppColors.accent.withOpacity(0.2)),
+                        Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -552,7 +552,7 @@ class _DoctorInviteCardState extends State<_DoctorInviteCard> {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -583,7 +583,7 @@ class _DoctorInviteCardState extends State<_DoctorInviteCard> {
                     color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(16),
                     border:
-                        Border.all(color: AppColors.primary.withOpacity(0.2))),
+                        Border.all(color: AppColors.primary.withValues(alpha: 0.2))),
                 child: Center(
                   child: Text(
                     widget.inviteCode,
@@ -604,12 +604,12 @@ class _DoctorInviteCardState extends State<_DoctorInviteCard> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _copied
-                      ? const Color(0xFF10B981).withOpacity(0.1)
+                      ? const Color(0xFF10B981).withValues(alpha: 0.1)
                       : AppColors.background,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                       color: _copied
-                          ? const Color(0xFF10B981).withOpacity(0.3)
+                          ? const Color(0xFF10B981).withValues(alpha: 0.3)
                           : AppColors.divider),
                 ),
                 child: Icon(
@@ -650,7 +650,7 @@ class _DoctorLinkCard extends StatelessWidget {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -702,7 +702,7 @@ class _DoctorLinkCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.1),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20)),
                   child: const Text('Active',
                       style: TextStyle(
@@ -717,9 +717,9 @@ class _DoctorLinkCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.06),
+                  color: AppColors.accent.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
                 ),
                 child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -753,7 +753,7 @@ class _DoctorLinkCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 4))
                   ],
@@ -794,7 +794,7 @@ class _Card extends StatelessWidget {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -900,10 +900,10 @@ class _ChipRow extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.05),
+                        color: AppColors.primary.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: AppColors.primary.withOpacity(0.1))),
+                            color: AppColors.primary.withValues(alpha: 0.1))),
                     child: Text(v,
                         style: const TextStyle(
                             fontSize: 13,
@@ -978,7 +978,7 @@ class _EditableCard extends StatelessWidget {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -999,7 +999,7 @@ class _EditableCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
+                    color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8)),
                 child: const Icon(Icons.edit_outlined,
                     size: 16, color: AppColors.primary),

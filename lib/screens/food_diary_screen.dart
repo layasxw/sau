@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import '../theme/app_theme.dart';
 import './onboarding/onboarding_data.dart';
 import '../services/firestore_service.dart';
@@ -289,7 +288,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                    color: AppColors.primary.withOpacity(0.3),
+                                    color: AppColors.primary.withValues(alpha: 0.3),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4))
                               ]),
@@ -334,7 +333,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -379,7 +378,7 @@ class _NutrCard extends StatelessWidget {
             border: Border.all(color: AppColors.divider, width: 0.5),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.01),
+                  color: Colors.black.withValues(alpha: 0.01),
                   blurRadius: 20,
                   offset: const Offset(0, 8))
             ]),
@@ -419,7 +418,7 @@ class _NutrCard extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: color.withOpacity(0.75)),
+                      color: color.withValues(alpha: 0.75)),
                 ),
             ]),
       );
@@ -440,7 +439,7 @@ class _MealCard extends StatelessWidget {
           border: Border.all(color: AppColors.divider, width: 0.5),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 40,
                 offset: const Offset(0, 10))
           ],
@@ -450,7 +449,7 @@ class _MealCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.05),
+                  color: AppColors.primary.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(16)),
               child: const Icon(CupertinoIcons.info,
                   color: AppColors.primary, size: 24)),
@@ -471,7 +470,7 @@ class _MealCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(20)),
                       child: Text(_translateMealType(meal.type, lang),
                           style: const TextStyle(
@@ -491,7 +490,7 @@ class _MealCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.05),
+                color: AppColors.accent.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: const Icon(CupertinoIcons.delete,
@@ -547,40 +546,46 @@ class _AddMealSheetState extends State<_AddMealSheet> {
 
   // If a DB product is selected — use its data; otherwise use AI fallback data
   double get _calcCalories {
-    if (_selected != null)
+    if (_selected != null) {
       return (_selected!.caloriesPer100g) * _gramsValue / 100;
-    if (_aiFoodData != null)
+    }
+    if (_aiFoodData != null) {
       return ((_aiFoodData!['calories_per_100g'] as num?)?.toDouble() ?? 0) *
           _gramsValue /
           100;
+    }
     return 0;
   }
 
   double get _calcProtein {
-    if (_selected != null)
+    if (_selected != null) {
       return (_selected!.proteinPer100g) * _gramsValue / 100;
-    if (_aiFoodData != null)
+    }
+    if (_aiFoodData != null) {
       return ((_aiFoodData!['protein_per_100g'] as num?)?.toDouble() ?? 0) *
           _gramsValue /
           100;
+    }
     return 0;
   }
 
   double get _calcCarbs {
     if (_selected != null) return (_selected!.carbsPer100g) * _gramsValue / 100;
-    if (_aiFoodData != null)
+    if (_aiFoodData != null) {
       return ((_aiFoodData!['carbs_per_100g'] as num?)?.toDouble() ?? 0) *
           _gramsValue /
           100;
+    }
     return 0;
   }
 
   double get _calcFat {
     if (_selected != null) return (_selected!.fatPer100g) * _gramsValue / 100;
-    if (_aiFoodData != null)
+    if (_aiFoodData != null) {
       return ((_aiFoodData!['fat_per_100g'] as num?)?.toDouble() ?? 0) *
           _gramsValue /
           100;
+    }
     return 0;
   }
 
@@ -903,7 +908,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                                   : [
                                       BoxShadow(
                                         color:
-                                            AppColors.primary.withOpacity(0.35),
+                                            AppColors.primary.withValues(alpha: 0.35),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       )
@@ -936,7 +941,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                           color: AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                              color: AppColors.primary.withOpacity(0.15)),
+                              color: AppColors.primary.withValues(alpha: 0.15)),
                         ),
                         child: Row(children: [
                           const SizedBox(
@@ -960,10 +965,10 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.06),
+                          color: AppColors.accent.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                              color: AppColors.accent.withOpacity(0.2)),
+                              color: AppColors.accent.withValues(alpha: 0.2)),
                         ),
                         child: Row(children: [
                           const Icon(CupertinoIcons.exclamationmark_circle,
@@ -985,10 +990,10 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.07),
+                          color: const Color(0xFF10B981).withValues(alpha: 0.07),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                              color: const Color(0xFF10B981).withOpacity(0.25)),
+                              color: const Color(0xFF10B981).withValues(alpha: 0.25)),
                         ),
                         child: Row(children: [
                           const Icon(CupertinoIcons.sparkles,
@@ -1011,7 +1016,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                                   style: TextStyle(
                                       fontSize: 11,
                                       color: const Color(0xFF10B981)
-                                          .withOpacity(0.8)),
+                                          .withValues(alpha: 0.8)),
                                 ),
                               ],
                             ),
@@ -1048,12 +1053,12 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                                   horizontal: 16, vertical: 14),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? AppColors.primary.withOpacity(0.05)
+                                    ? AppColors.primary.withValues(alpha: 0.05)
                                     : Colors.transparent,
                                 border: Border(
                                     bottom: BorderSide(
                                         color: AppColors.divider
-                                            .withOpacity(0.5))),
+                                            .withValues(alpha: 0.5))),
                               ),
                               child: Row(children: [
                                 Expanded(
@@ -1240,7 +1245,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(16)),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,

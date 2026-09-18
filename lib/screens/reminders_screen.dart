@@ -17,43 +17,43 @@ import '../l10n/translations.dart';
     case 'Medication':
       return (
         icon: Icons.medication_outlined,
-        bg: Color(0xFFEDE7F6),
-        color: Color(0xFF7E57C2)
+        bg: const Color(0xFFEDE7F6),
+        color: const Color(0xFF7E57C2)
       );
     case 'Doctor appointment':
       return (
         icon: Icons.local_hospital_outlined,
-        bg: Color(0xFFFFEBEE),
-        color: Color(0xFFE53935)
+        bg: const Color(0xFFFFEBEE),
+        color: const Color(0xFFE53935)
       );
     case 'Lab test':
       return (
         icon: Icons.science_outlined,
-        bg: Color(0xFFFFF3E0),
-        color: Color(0xFFFF9800)
+        bg: const Color(0xFFFFF3E0),
+        color: const Color(0xFFFF9800)
       );
     case 'Physical activity':
       return (
         icon: Icons.directions_run,
-        bg: Color(0xFFE8F5E9),
+        bg: const Color(0xFFE8F5E9),
         color: Colors.green
       );
     case 'Dietary':
       return (
         icon: Icons.restaurant_menu_outlined,
-        bg: Color(0xFFE8F7F6),
+        bg: const Color(0xFFE8F7F6),
         color: AppColors.primary
       );
     case 'Sleep':
       return (
         icon: Icons.bedtime_outlined,
-        bg: Color(0xFFE8F7F6),
+        bg: const Color(0xFFE8F7F6),
         color: AppColors.primary
       );
     default:
       return (
         icon: Icons.notifications_outlined,
-        bg: Color(0xFFF0F4F5),
+        bg: const Color(0xFFF0F4F5),
         color: AppColors.textSecondary
       );
   }
@@ -346,7 +346,7 @@ class _Card extends StatelessWidget {
                             color: AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: AppColors.primary.withOpacity(0.25))),
+                                color: AppColors.primary.withValues(alpha: 0.25))),
                         child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -689,7 +689,7 @@ class _AddSheetState extends State<_AddSheet> {
                         color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: AppColors.primary.withOpacity(0.3))),
+                            color: AppColors.primary.withValues(alpha: 0.3))),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Text('Dose ${i + 1}',
                           style: const TextStyle(

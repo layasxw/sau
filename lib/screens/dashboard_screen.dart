@@ -205,10 +205,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // логика фразы для карточки
   String _getMotivationPhrase(AppLanguage lang) {
     if (_todaySymptomsHigh) return Translations.get(lang, 'motivation_care');
-    if (_todayHasFood && _todayHasSymptoms)
+    if (_todayHasFood && _todayHasSymptoms) {
       return Translations.get(lang, 'motivation_great');
-    if (_todayHasFood && !_todayHasSymptoms)
+    }
+    if (_todayHasFood && !_todayHasSymptoms) {
       return Translations.get(lang, 'motivation_log_symptoms');
+    }
     return Translations.get(lang, 'motivation_how_feeling');
   }
 
@@ -286,7 +288,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
+              color: AppColors.primary.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -302,7 +304,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -392,25 +394,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _ActionCard(
               icon: CupertinoIcons.add,
               label: Translations.get(lang, 'log_meal'),
-              color: const Color(0xFF10B981).withOpacity(0.1),
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
               iconColor: const Color(0xFF10B981),
               onTap: () => _go(2)),
           _ActionCard(
               icon: CupertinoIcons.waveform_path_ecg,
               label: Translations.get(lang, 'log_symptom'),
-              color: const Color(0xFF6366F1).withOpacity(0.1),
+              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
               iconColor: const Color(0xFF6366F1),
               onTap: () => _go(3)),
           _ActionCard(
               icon: CupertinoIcons.bell,
               label: Translations.get(lang, 'add_reminder'),
-              color: const Color(0xFFF59E0B).withOpacity(0.1),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
               iconColor: const Color(0xFFF59E0B),
               onTap: () => _go(1)),
           _ActionCard(
               icon: CupertinoIcons.chart_bar_square,
               label: Translations.get(lang, 'view_trends'),
-              color: const Color(0xFFEC4899).withOpacity(0.1),
+              color: const Color(0xFFEC4899).withValues(alpha: 0.1),
               iconColor: const Color(0xFFEC4899),
               onTap: () => _go(3)),
         ],
@@ -421,7 +423,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

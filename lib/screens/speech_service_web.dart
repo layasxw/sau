@@ -26,10 +26,10 @@ class WebSpeechService {
 
     _srResult = r.onResult.listen((event) {
       final results = event.results;
-      if (results == null || results.length == 0) return;
+      if (results == null || results.isEmpty) return;
       final last = results[results.length - 1];
-      if (last == null || last.isFinal != true) return;
-      final t = last.item(0)?.transcript?.trim() ?? '';
+      if (last.isFinal != true) return;
+      final t = last.item(0).transcript?.trim() ?? '';
       if (t.isNotEmpty) onResult(t);
     });
 
